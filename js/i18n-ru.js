@@ -243,6 +243,8 @@ window.I18N_RU = {
   'Bağlantılı (stoğa girecek)': 'Ожидается (поступит на склад)',
   'Stoğa giriş tarihi': 'Дата поступления на склад',
   'Bağlantılı mal için geçerli bir stoğa giriş tarihi seçin.': 'Выберите корректную дату поступления для ожидаемого товара.',
+  'Merhaba, #{id} numaralı "{title}" ilanı için adresime teslim (nakliye dahil) fiyat almak istiyorum.': 'Здравствуйте, прошу цену с доставкой (включая перевозку) на мой адрес по объявлению №{id} «{title}».',
+  'Adrese teslim fiyatı iste': 'Запросить цену с доставкой',
   'Haberler': 'Новости',
   'Sektörden Haberler': 'Новости отрасли',
   'Plastik sektöründen güncel haberler': 'Свежие новости пластиковой отрасли',

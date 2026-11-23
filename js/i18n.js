@@ -260,6 +260,8 @@
     'Bağlantılı (stoğa girecek)': ['On order (will arrive in stock)', 'En commande (arrivera en stock)', 'قيد الطلب (سيصل إلى المخزون)'],
     'Stoğa giriş tarihi': ['Stock arrival date', 'Date d’arrivée en stock', 'تاريخ الوصول إلى المخزون'],
     'Bağlantılı mal için geçerli bir stoğa giriş tarihi seçin.': ['Select a valid stock arrival date for on-order goods.', 'Choisissez une date d’arrivée en stock valide pour la marchandise en commande.', 'اختر تاريخ وصول صالحاً للبضاعة القادمة.'],
+    'Merhaba, #{id} numaralı "{title}" ilanı için adresime teslim (nakliye dahil) fiyat almak istiyorum.': ['Hello, I would like a delivered price (freight included) to my address for listing #{id} "{title}".', 'Bonjour, je souhaite un prix livré (transport inclus) à mon adresse pour l’annonce n°{id} « {title} ».', 'مرحباً، أرغب في سعر شامل التوصيل إلى عنواني للإعلان رقم {id} "{title}".'],
+    'Adrese teslim fiyatı iste': ['Request delivered price', 'Demander le prix livré', 'اطلب السعر مع التوصيل'],
     'Haberler': ['News', 'Actualités', 'الأخبار'],
     'Sektörden Haberler': ['Industry News', 'Actualités du secteur', 'أخبار القطاع'],
     'Plastik sektöründen güncel haberler': ['Latest news from the plastics industry', 'Dernières actualités du secteur des plastiques', 'آخر أخبار قطاع البلاستيك'],
