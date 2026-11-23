@@ -82,6 +82,12 @@
   };
   $('calc-n').addEventListener('input', calc); calc();
   box.insertAdjacentHTML('beforeend', '<p class="hint">' + t('Fiyatlar depo teslimdir (ürünün bulunduğu şehirde). Nakliye dahil fiyat için bizimle iletişime geçebilirsiniz.') + ' <a target="_blank" rel="noopener" href="' + waLink(t('Merhaba, #{id} numaralı "{title}" ilanı için adresime teslim (nakliye dahil) fiyat almak istiyorum.', { id: l.id, title: l.title })) + '">' + t('Adrese teslim fiyatı iste') + '</a></p>');
+  const favOn = (await H.loadFavs()).has(l.id);
+  box.insertAdjacentHTML('beforeend', '<p><button type="button" class="btn btn-sm" id="favbtn">' + (favOn ? '★ ' + t('Favorilerden çıkar') : '☆ ' + t('Favorilere ekle')) + '</button></p>');
+  $('favbtn').addEventListener('click', async () => {
+    const on = await H.toggleFav(l); if (on === null) return;
+    $('favbtn').textContent = (on ? '★ ' + t('Favorilerden çıkar') : '☆ ' + t('Favorilere ekle'));
+  });
   // TDS: üreticinin bağlantısı (TDS ajanı bulur) ve/veya satıcının yüklediği PDF
   const tds = [];
   if (l.product_tds_url) tds.push('<a class="btn btn-sm" target="_blank" rel="nofollow noopener" href="' + esc(l.product_tds_url) + '">' + t('TDS (üretici)') + '</a>');

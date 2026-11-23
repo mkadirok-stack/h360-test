@@ -45,6 +45,7 @@
   const list = document.getElementById('list'), q = document.getElementById('q'), cat = document.getElementById('cat');
   if (error) { list.innerHTML = '<p class="form-note err">İlanlar yüklenemedi.</p>'; return; }
 
+  const favs = await H.loadFavs();
   const citysel = document.getElementById('citysel');
   [...new Set(data.map(l => l.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr')).forEach(c => citysel.insertAdjacentHTML('beforeend', '<option>' + esc(c) + '</option>'));
   const brandsel = document.getElementById('brandsel'), matsel = document.getElementById('matsel'), usagesel = document.getElementById('usagesel');
@@ -91,7 +92,7 @@
     list.innerHTML = rows.map(l => {
       const msg = t('Merhaba, #{id} numaralı "{title}" ilanı hakkında bilgi almak istiyorum.', { id: l.id, title: l.title });
       return '<article class="card listing">' +
-        (l.category ? '<span class="badge">' + esc(l.category) + '</span>' : '') +
+        H.favBtn(l, favs.has(l.id)) + (l.category ? '<span class="badge">' + esc(l.category) + '</span>' : '') +
         '<h3><a href="ilan.html?id=' + l.id + '">' + esc(l.title) + '</a></h3>' +
         (l.material ? '<p class="meta">' + esc([l.material, l.brand, l.product_code].filter(Boolean).join(' · ')) + '</p>' : '') + chips(l) +
         '<p class="meta">' + esc(l.quantity) + ' ' + esc(t(l.unit)) + (l.city ? ' · ' + t('Depo teslim') + ': ' + esc(l.city) : '') + '</p>' +
@@ -101,6 +102,13 @@
         '</article>';
     }).join('');
   }
+  list.addEventListener('click', async e => {
+    const b = e.target.closest('[data-fav]'); if (!b) return;
+    const l = data.find(x => x.id === Number(b.dataset.fav)); b.disabled = true;
+    const on = await H.toggleFav(l); b.disabled = false;
+    if (on === null) return;
+    b.classList.toggle('on', on); b.textContent = on ? '★' : '☆'; b.setAttribute('aria-pressed', on); b.title = t(on ? 'Favorilerden çıkar' : 'Favorilere ekle');
+  });
   q.addEventListener('input', render); cat.addEventListener('change', render); citysel.addEventListener('change', render); [brandsel, matsel, usagesel, stocksel].forEach(e => e.addEventListener('change', render)); [mfimin, mfimax].forEach(e => e.addEventListener('input', render));
   render();
 })();

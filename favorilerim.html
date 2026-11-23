@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Favorilerim | Hammadde360</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/i18n-ru.js"></script>
+  <script src="js/i18n.js"></script>
+</head>
+<body>
+<div id="site-top"></div>
+<main class="section">
+  <div class="container">
+    <h2>Favorilerim</h2>
+    <p class="sub">Takip ettiğiniz ilanlar. Fiyat veya stok durumu değişince burada işaretlenir.</p>
+    <p id="topbar" hidden><button type="button" class="btn btn-sm" id="seen-all">Hepsini görüldü işaretle</button></p>
+    <div id="favs" class="grid listings"><p class="sub">Yükleniyor...</p></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/support.js"></script>
+<script>
+(async () => {
+  const { sb, esc, money, tl } = H;
+  const me = await H.init({ require: 'login' });
+  if (!me) return;
+  const box = document.getElementById('favs'), top = document.getElementById('topbar');
+  let rows = [];
+
+  const num = n => Number(n).toLocaleString('tr-TR', { maximumFractionDigits: 3 });
+  function changes(f, l) {
+    const out = [];
+    const cur = H.effPrice(l), was = f.seen_price == null ? null : Number(f.seen_price);
+    if (was !== null && Math.abs(cur - was) > 0.004) {
+      out.push(cur < was ? ['chg-down', t('Fiyat düştü: {a} → {b}', { a: money(was), b: money(cur) })]
+                         : ['chg-up', t('Fiyat arttı: {a} → {b}', { a: money(was), b: money(cur) })]);
+    }
+    const av = l.availability || 'ready';
+    if (f.seen_availability === 'incoming' && av === 'ready') out.push(['chg-down', t('Stoğa girdi: artık hazır stok')]);
+    else if (f.seen_availability === 'ready' && av === 'incoming') out.push(['chg-info', t('Bağlantılıya alındı')]);
+    if (f.seen_quantity != null && Number(f.seen_quantity) !== Number(l.quantity)) out.push(['chg-info', t('Stok miktarı değişti: {a} → {b}', { a: num(f.seen_quantity), b: num(l.quantity) })]);
+    return out;
+  }
+
+  function card(r) {
+    const f = r.f, l = r.l;
+    if (!l) return '<article class="card listing favcard"><h3>#' + f.listing_id + '</h3><p class="meta">' + t('Bu ilan şu an yayında değil.') + '</p>' +
+      '<div class="actions"><button class="btn btn-sm" data-rm="' + f.listing_id + '">' + t('Kaldır') + '</button></div></article>';
+    const sk = H.stock(l), u = ' / ' + esc(t(l.unit || 'birim'));
+    const fx = H.fx && H.fx.usd_sell;
+    return '<article class="card listing favcard">' +
+      (l.category ? '<span class="badge">' + esc(l.category) + '</span>' : '') +
+      '<h3><a href="ilan.html?id=' + l.id + '">' + esc(l.title) + '</a></h3>' +
+      '<p class="chips"><span class="chip ' + sk.cls + '">' + esc(sk.label) + '</span></p>' +
+      (r.ch.length ? '<p>' + r.ch.map(c => '<span class="chg ' + c[0] + '">' + esc(c[1]) + '</span>').join('') + '</p>' : '<p class="meta">' + t('Değişiklik yok') + '</p>') +
+      '<p class="meta">' + num(l.quantity) + ' ' + esc(t(l.unit)) + (l.city ? ' · ' + t('Depo teslim') + ': ' + esc(l.city) : '') + '</p>' +
+      '<div class="price"><strong>' + money(H.effPrice(l)) + '</strong><small>' + u + ' + %' + Number(l.vat_pct ?? 20) + ' ' + 'KDV</small><div class="tlp">' + tl(H.effPrice(l), fx) + u + '</div></div>' +
+      '<div class="actions">' + (r.ch.length ? '<button class="btn btn-sm" data-seen="' + l.id + '">' + t('Görüldü') + '</button>' : '') +
+      '<a class="btn btn-sm" href="ilan.html?id=' + l.id + '">Detay</a>' +
+      '<button class="btn btn-sm" data-rm="' + l.id + '">' + t('Kaldır') + '</button></div></article>';
+  }
+
+  function render() {
+    if (!rows.length) { top.hidden = true; box.innerHTML = '<p class="sub">' + t('Henüz favori ilanınız yok. İlanlar sayfasında ☆ simgesine dokunarak ekleyebilirsiniz.') + '</p>'; return; }
+    rows.sort((a, b) => (b.ch.length - a.ch.length) || (a.l ? 0 : 1) - (b.l ? 0 : 1));
+    top.hidden = !rows.some(r => r.ch.length);
+    box.innerHTML = rows.map(card).join('');
+  }
+
+  async function load() {
+    const fr = await sb.from('favorites').select('*').order('created_at', { ascending: false });
+    if (fr.error) { box.innerHTML = '<p class="form-note err">' + t('Favoriler yüklenemedi.') + '</p>'; return; }
+    const ids = fr.data.map(f => f.listing_id);
+    const lr = ids.length ? await sb.from('public_listings').select('*').in('id', ids) : { data: [] };
+    const map = {}; (lr.data || []).forEach(l => { map[l.id] = l; });
+    rows = fr.data.map(f => { const l = map[f.listing_id] || null; return { f, l, ch: l ? changes(f, l) : [] }; });
+    render();
+  }
+
+  async function markSeen(list) {
+    for (const r of list) {
+      const { error } = await sb.from('favorites').update({ seen_price: H.effPrice(r.l), seen_availability: r.l.availability || 'ready', seen_quantity: r.l.quantity, seen_at: new Date().toISOString() }).eq('listing_id', r.l.id);
+      if (!error) { r.f.seen_price = H.effPrice(r.l); r.f.seen_availability = r.l.availability || 'ready'; r.f.seen_quantity = r.l.quantity; r.ch = []; }
+    }
+    render();
+  }
+
+  box.addEventListener('click', async e => {
+    const s = e.target.closest('[data-seen]'), d = e.target.closest('[data-rm]');
+    if (s) { const r = rows.find(x => x.l && x.l.id === Number(s.dataset.seen)); if (r) await markSeen([r]); }
+    if (d) {
+      const lid = Number(d.dataset.rm);
+      const { error } = await sb.from('favorites').delete().eq('listing_id', lid);
+      if (!error) { rows = rows.filter(x => x.f.listing_id !== lid); (await H.loadFavs()).delete(lid); render(); }
+    }
+  });
+  document.getElementById('seen-all').addEventListener('click', () => markSeen(rows.filter(r => r.l && r.ch.length)));
+  await load();
+})();
+</script>
+</body>
+</html>
