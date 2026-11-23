@@ -295,3 +295,12 @@ ol.steps li::before{content:counter(s);position:absolute;left:14px;top:12px;widt
 /* Stok durumu etiketleri */
 .chip-ok{background:#dcfae6;color:#067647;border-color:#abefc6}
 .chip-warn{background:#fff4d6;color:#8a5a00;border-color:#f0d78a}
+
+/* Favoriler */
+.listing{position:relative}
+.fav-btn{position:absolute;top:10px;right:12px;background:transparent;border:0;font-size:1.5rem;line-height:1;cursor:pointer;color:#b88a00;padding:4px}
+.fav-btn.on{color:#e0a800}
+.fav-btn:disabled{opacity:.5}
+.chg{display:inline-block;margin:4px 6px 4px 0;padding:3px 10px;border-radius:999px;font-size:.82rem;font-weight:600}
+.chg-down{background:#dcfae6;color:#067647}.chg-up{background:#fee4e2;color:#b42318}.chg-info{background:#e0ecff;color:#1d4ed8}
+.favcard .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
