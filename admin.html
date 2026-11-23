@@ -37,7 +37,7 @@
   let prospects = [], mailLog = [];
   let requests = [], sectorsL = [], materialsL = [], brandsL = [], productsL = [];
 
-  const TABS = [['agents', 'Ajan Ofisi'], ['pending', 'Bekleyen'], ['published', 'Yayında'], ['rejected', 'Reddedilen'], ['members', 'Üyeler'], ['catalog', 'Katalog'], ['marketing', 'Pazarlama'], ['news', 'Haberler']];
+  const TABS = [['agents', 'Ajan Ofisi'], ['pending', 'Bekleyen'], ['published', 'Yayında'], ['rejected', 'Reddedilen'], ['members', 'Üyeler'], ['catalog', 'Katalog'], ['marketing', 'Pazarlama'], ['prices', 'Fiyat Duyuruları'], ['news', 'Haberler']];
   const num = v => (v === '' || v === null || v === undefined) ? null : Number(v);
   const listOf = (sp, m) => Math.round(sp * (1 + m / 100) * 100) / 100;
 
@@ -53,12 +53,13 @@
     await loadMarketing();
     await loadAgents();
     await loadNews();
+    await loadPrices();
     render();
   }
 
   function renderTabs() {
     tabsEl.innerHTML = TABS.map(([k, n]) => {
-      const cnt = k === 'members' ? members.length : k === 'news' ? newsL.length : k === 'marketing' ? prospects.filter(x => ['unreachable', 'bounced'].includes(x.status)).length : k === 'catalog' ? requests.filter(r => ['pending', 'needs_confirmation', 'confirmed_different'].includes(r.status)).length : listings.filter(x => x.status === k).length;
+      const cnt = k === 'members' ? members.length : k === 'news' ? newsL.length : k === 'prices' ? priceL.length : k === 'marketing' ? prospects.filter(x => ['unreachable', 'bounced'].includes(x.status)).length : k === 'catalog' ? requests.filter(r => ['pending', 'needs_confirmation', 'confirmed_different'].includes(r.status)).length : listings.filter(x => x.status === k).length;
       return '<button class="tab' + (k === tab ? ' active' : '') + '" data-tab="' + k + '" type="button">' + n + (k === 'agents' ? '' : ' (' + cnt + ')') + '</button>';
     }).join('');
   }
@@ -141,7 +142,7 @@
 
   function render() {
     renderTabs();
-    tab === 'agents' ? renderAgents() : tab === 'news' ? renderNews() : tab === 'members' ? renderMembers() : tab === 'catalog' ? renderCatalog() : tab === 'marketing' ? renderMarketing() : renderListings();
+    tab === 'agents' ? renderAgents() : tab === 'prices' ? renderPrices() : tab === 'news' ? renderNews() : tab === 'members' ? renderMembers() : tab === 'catalog' ? renderCatalog() : tab === 'marketing' ? renderMarketing() : renderListings();
   }
 
   function exportCSV() {
@@ -219,6 +220,48 @@
     if (error) return say(error.message, 'err');
     await loadNews(); render();
   }
+
+  // ---------- FİYAT DUYURULARI (üretici zam/indirim, elle girilir, sadece üyelere görünür) ----------
+  let priceL = [];
+  async function loadPrices() {
+    const { data } = await sb.from('price_notices').select('*').order('created_at', { ascending: false }).limit(200);
+    priceL = data || [];
+  }
+  const fmtAmt = p => (p.direction === 'zam' ? '+' : '−') + Number(p.amount).toLocaleString('tr-TR') + (p.unit === '%' ? ' %' : ' ' + p.unit);
+  function renderPrices() {
+    const mats = [...new Set(materialsL.map(m => m.name))];
+    view.innerHTML = '<h3>Üretici fiyat duyurusu ekle</h3><p class="hint">Petkim vb. zam/indirim bilgisini sen girersin; yalnızca giriş yapmış üyeler Haberler sayfasında görür.</p>' +
+      '<form id="addprice" class="form" autocomplete="off"><div class="row">' +
+      '<label>Üretici<input name="manufacturer" class="caps" value="PETKİM" required maxlength="80"></label>' +
+      '<label>Ürün grubu <small>(boş = tüm ürünler)</small><input name="material" class="caps" list="pmats" maxlength="80"><datalist id="pmats">' + mats.map(m => '<option value="' + esc(m) + '">').join('') + '</datalist></label></div>' +
+      '<div class="row"><label>Tür<select name="direction"><option value="zam">ZAM</option><option value="indirim">İNDİRİM</option></select></label>' +
+      '<label>Tutar<input name="amount" type="number" min="0" step="any" required></label>' +
+      '<label>Birim<select name="unit"><option>USD/ton</option><option>%</option><option>TL/ton</option><option>EUR/ton</option></select></label>' +
+      '<label>Geçerlilik tarihi<input name="effective_date" type="date"></label></div>' +
+      '<label>Not <small>(isteğe bağlı, en fazla 500 karakter)</small><textarea name="note" rows="2" maxlength="500"></textarea></label>' +
+      '<button class="btn" type="submit">Duyuruyu yayınla</button></form>' +
+      '<h3 style="margin-top:24px">Duyurular (' + priceL.length + ')</h3>' +
+      (priceL.length ? '<div class="tablewrap"><table class="table"><thead><tr><th>Eklenme</th><th>Üretici</th><th>Ürün</th><th>Değişim</th><th>Geçerlilik</th><th>Not</th><th>Durum</th><th></th></tr></thead><tbody>' + priceL.map(p =>
+        '<tr data-pid="' + p.id + '"><td>' + dateTR(p.created_at) + '</td><td><b>' + esc(p.manufacturer) + '</b></td><td>' + esc(p.material || 'Tüm ürünler') + '</td><td><b style="color:' + (p.direction === 'zam' ? '#b42318' : '#067647') + '">' + (p.direction === 'zam' ? 'ZAM ' : 'İNDİRİM ') + esc(fmtAmt(p)) + '</b></td><td>' + (p.effective_date ? dateTR(p.effective_date) : '—') + '</td><td><small>' + esc(p.note || '') + '</small></td><td>' + (p.visible ? 'Yayında' : 'Gizli') + '</td>' +
+        '<td><button class="btn btn-sm" data-pn="' + (p.visible ? 'hide' : 'show') + '" type="button">' + (p.visible ? 'Gizle' : 'Göster') + '</button> <button class="btn btn-sm btn-danger" data-pn="del" type="button">Sil</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="sub">Henüz duyuru yok.</p>');
+  }
+  async function priceAction(tr, kind) {
+    const id = Number(tr.dataset.pid);
+    if (kind === 'del' && !confirm('Bu duyuru kalıcı olarak silinsin mi?')) return;
+    const r = kind === 'del' ? await sb.from('price_notices').delete().eq('id', id) : await sb.from('price_notices').update({ visible: kind === 'show' }).eq('id', id);
+    if (r.error) return say(r.error.message, 'err');
+    await loadPrices(); render();
+  }
+  view.addEventListener('submit', async e => {
+    if (e.target.id !== 'addprice') return;
+    e.preventDefault();
+    const f = e.target.elements, up = v => (v || '').trim().toLocaleUpperCase('tr');
+    const amount = Number(f.amount.value);
+    if (!up(f.manufacturer.value) || !(amount > 0)) return say('Üretici ve tutar zorunlu (tutar 0\'dan büyük olmalı).', 'err');
+    const { error } = await sb.from('price_notices').insert({ manufacturer: up(f.manufacturer.value), material: up(f.material.value) || null, direction: f.direction.value, amount, unit: f.unit.value, effective_date: f.effective_date.value || null, note: f.note.value.trim() || null });
+    if (error) return say(error.message, 'err');
+    say('Duyuru yayınlandı.', 'ok'); await loadPrices(); render();
+  });
 
   // ---------- AJAN OFİSİ ----------
   const AGENTS = [
@@ -502,6 +545,7 @@
     const bw = e.target.closest('[data-bw]');
     if (bw) { return brandSite(bw.closest('tr')); }
     const nw = e.target.closest('[data-nw]'); if (nw) return newsAction(nw.closest('tr'), nw.dataset.nw);
+    const pn = e.target.closest('[data-pn]'); if (pn) return priceAction(pn.closest('tr'), pn.dataset.pn);
     const ag = e.target.closest('[data-ag]'); if (ag) { agSel = ag.dataset.ag; return render(); }
     const rq = e.target.closest('[data-rq]'); if (rq) return requestAction(rq.closest('tr'), rq.dataset.rq);
     const pr = e.target.closest('[data-pr]'); if (pr) return prospectAction(pr.closest('tr'), pr.dataset.pr);

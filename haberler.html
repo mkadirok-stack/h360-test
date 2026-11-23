@@ -14,6 +14,10 @@
 <div id="site-top"></div>
 <main class="section">
   <div class="container">
+    <section id="prices-wrap" style="margin-bottom:32px">
+      <h2>Üretici Fiyat Duyuruları</h2>
+      <div id="prices" class="newslist"><p class="sub">Yükleniyor...</p></div>
+    </section>
     <h2>Sektörden Haberler</h2>
     <p class="sub">Plastik sektöründen güncel haberler</p>
     <div id="news" class="newslist"><p class="sub">Yükleniyor...</p></div>
@@ -29,6 +33,23 @@
 (async () => {
   const { sb, esc, dateTR } = H;
   await H.init();
+  // Üretici fiyat duyuruları: yalnızca giriş yapmış üyelere
+  const pbox = document.getElementById('prices');
+  const sess = (await sb.auth.getSession()).data.session;
+  if (!sess) {
+    pbox.innerHTML = '<p class="sub">' + t('Fiyat duyuruları üyelere özeldir.') + ' <a href="giris.html">' + t('Giriş yap veya üye ol') + '</a></p>';
+  } else {
+    const pr = await sb.from('price_notices').select('*').eq('visible', true).order('created_at', { ascending: false }).limit(30);
+    if (pr.error) pbox.innerHTML = '<p class="form-note err">' + t('Fiyat duyuruları yüklenemedi.') + '</p>';
+    else if (!pr.data.length) pbox.innerHTML = '<p class="sub">' + t('Henüz fiyat duyurusu yok.') + '</p>';
+    else pbox.innerHTML = pr.data.map(p => {
+      const amt = (p.direction === 'zam' ? '+' : '−') + Number(p.amount).toLocaleString('tr-TR') + (p.unit === '%' ? ' %' : ' ' + p.unit);
+      return '<article class="card newsitem"><span class="badge" style="background:' + (p.direction === 'zam' ? '#fee4e2;color:#b42318' : '#dcfae6;color:#067647') + '">' + t(p.direction === 'zam' ? 'ZAM' : 'İNDİRİM') + '</span> ' +
+        '<h3>' + esc(p.manufacturer) + ' · ' + esc(p.material || t('Tüm ürünler')) + ' · ' + amt + '</h3>' +
+        (p.note ? '<p>' + esc(p.note) + '</p>' : '') +
+        '<p class="meta">' + (p.effective_date ? t('Geçerlilik:') + ' ' + dateTR(p.effective_date) + ' · ' : '') + dateTR(p.created_at) + '</p></article>';
+    }).join('') + '<p class="hint">' + t('Bilgi amaçlıdır; kesin fiyat ve koşullar için bizimle iletişime geçin.') + '</p>';
+  }
   const box = document.getElementById('news');
   const { data, error } = await sb.from('news').select('*').order('created_at', { ascending: false }).limit(60);
   if (error) { box.innerHTML = '<p class="form-note err">' + t('Haberler yüklenemedi.') + '</p>'; return; }
