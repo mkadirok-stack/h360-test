@@ -14,7 +14,7 @@
 html{scroll-behavior:smooth;scroll-padding-top:72px}
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--bg);line-height:1.6}
 a{color:inherit}
-.container{width:100%;max-width:1120px;margin:0 auto;padding:0 20px}
+.container{width:100%;max-width:1360px;margin:0 auto;padding:0 clamp(20px,3vw,48px)}
 .narrow{max-width:760px}
 
 /* Test banner */
@@ -268,3 +268,6 @@ fieldset.tiers legend{font-weight:600;font-size:.92rem;padding:0 6px}
 .chip-hi{background:var(--accent);color:#fff;border-color:var(--accent)}
 .filters input[type=number]{flex:0 1 130px;min-width:110px}
 @media (max-width:640px){.tier-row{grid-template-columns:1fr}}
+
+/* Geniş ekranlarda ilan kartları 4 sütun */
+@media (min-width:1280px){.listings{grid-template-columns:repeat(4,1fr)}}
