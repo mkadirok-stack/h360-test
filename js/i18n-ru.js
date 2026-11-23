@@ -233,6 +233,7 @@ window.I18N_RU = {
   'İlgilendiğiniz ürün grupları': 'Интересующие вас группы продукции',
   'Sattığınız ürün grupları': 'Группы продукции, которые вы продаёте',
   'Lütfen ilgilendiğiniz en az bir ürün grubunu seçin.': 'Пожалуйста, выберите хотя бы одну интересующую вас группу продукции.',
+  'Nasıl Çalışır': 'Как это работает',
   'Haberler': 'Новости',
   'Sektörden Haberler': 'Новости отрасли',
   'Plastik sektöründen güncel haberler': 'Свежие новости пластиковой отрасли',

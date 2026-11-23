@@ -35,7 +35,7 @@
   }
 
   function renderHeader(p, fx) {
-    const links = [['index.html', 'Ana Sayfa'], ['ilanlar.html', 'İlanlar'], ['haberler.html', 'Haberler']];
+    const links = [['index.html', 'Ana Sayfa'], ['ilanlar.html', 'İlanlar'], ['haberler.html', 'Haberler'], ['nasil-calisir.html', 'Nasıl Çalışır']];
     if (p && (p.role === 'seller' || p.role === 'admin')) links.push(['ilan-ver.html', 'İlan Ver']);
     if (p && p.role === 'admin') links.push(['admin.html', 'Yönetim']);
     const auth = p

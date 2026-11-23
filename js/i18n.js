@@ -250,6 +250,7 @@
     'Sattığınız ürün grupları': ['Product groups you sell', 'Groupes de produits que vous vendez', 'مجموعات المنتجات التي تبيعها'],
     'Lütfen ilgilendiğiniz en az bir ürün grubunu seçin.': ['Please select at least one product group you are interested in.', 'Veuillez sélectionner au moins un groupe de produits qui vous intéresse.', 'يرجى اختيار مجموعة منتجات واحدة على الأقل تهتم بها.'],
     // ---- Haberler
+    'Nasıl Çalışır': ['How It Works', 'Comment ça marche', 'كيف يعمل'],
     'Haberler': ['News', 'Actualités', 'الأخبار'],
     'Sektörden Haberler': ['Industry News', 'Actualités du secteur', 'أخبار القطاع'],
     'Plastik sektöründen güncel haberler': ['Latest news from the plastics industry', 'Dernières actualités du secteur des plastiques', 'آخر أخبار قطاع البلاستيك'],
