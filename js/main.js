@@ -69,3 +69,45 @@ form.addEventListener('submit', async e => {
     sec.hidden = false;
   } catch (e) {}
 })();
+
+// Ürün grupları: yayındaki ilanlardan canlı kartlar (herkese açık; fiyat, stok miktarı ve satıcı bilgisi YOK)
+(async () => {
+  const cfg = window.H360, grid = document.querySelector('#urunler .products');
+  if (!cfg || !grid) return;
+  const T = window.t || (x => x);
+  const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const INFO = {
+    PP: ['Poliolefin', 'Polipropilen (PP)', 'Ambalaj, otomotiv, tekstil ve tıbbi uygulamalar için geniş PP yelpazesi.'],
+    HDPE: ['Poliolefin', 'Yüksek Yoğunluklu Polietilen (HDPE)', 'Boru, şişe, film ve enjeksiyon uygulamaları için.'],
+    LDPE: ['Poliolefin', 'Düşük Yoğunluklu Polietilen (LDPE)', 'Film, kaplama ve esnek ambalaj uygulamaları için.'],
+    LLDPE: ['Poliolefin', 'Lineer Düşük Yoğunluklu Polietilen (LLDPE)', 'Streç, ambalaj filmi ve esnek uygulamalar için.'],
+    PVC: ['Vinil', 'Polivinil Klorür (PVC)', 'Profil, boru, kablo ve zemin uygulamaları için.'],
+    PET: ['Polyester', 'Polietilen Tereftalat (PET)', 'Şişe, ambalaj ve elyaf uygulamaları için.'],
+    PS: ['Stirenik', 'Polistiren (PS)', 'Tek kullanımlık ürün, beyaz eşya ve ambalaj için.'],
+    ABS: ['Stirenik', 'Akrilonitril Bütadien Stiren (ABS)', 'Elektronik, otomotiv ve oyuncak uygulamaları için.'],
+    PA: ['Mühendislik Plastikleri', 'Poliamid (PA)', 'Dayanım ve ısıl direnç gerektiren teknik parçalar için.'],
+    PC: ['Mühendislik Plastikleri', 'Polikarbonat (PC)', 'Şeffaf ve darbe dayanımı yüksek uygulamalar için.']
+  };
+  try {
+    const h = { apikey: cfg.SUPABASE_KEY, Authorization: 'Bearer ' + cfg.SUPABASE_KEY, 'Content-Type': 'application/json' };
+    const r = await fetch(cfg.SUPABASE_URL + '/rest/v1/rpc/public_catalog_cards', { method: 'POST', headers: h, body: '{}' });
+    const rows = r.ok ? await r.json() : [];
+    if (!rows.length) return; // veri yoksa mevcut statik kartlar kalır
+    grid.innerHTML = rows.map(c => {
+      const info = INFO[String(c.material).toUpperCase()] || [c.sector || '', c.material, ''];
+      const tags = (c.usages || []).slice(0, 5).map(u => '<span class="ptag">' + esc(T(u)) + '</span>').join('');
+      const grades = (c.grades || []).slice(0, 4).map(g => '<span class="ptag pgrade">' + esc(g.brand + ' ' + g.code) + (g.n > 1 ? ' · ' + T('{n} ilan', { n: g.n }) : '') + '</span>').join('') +
+        ((c.grades || []).length > 4 ? '<span class="ptag pgrade">+' + ((c.grades || []).length - 4) + '</span>' : '');
+      return '<article class="card pcard">' +
+        (info[0] ? '<small class="pfam">' + esc(T(info[0])) + '</small>' : '') +
+        '<h3>' + esc(T(info[1])) + '</h3>' +
+        (info[2] ? '<p>' + esc(T(info[2])) + '</p>' : '') +
+        (tags ? '<p class="ptags">' + tags + '</p>' : '') +
+        '<p class="ptags">' + grades + '</p>' +
+        '<div class="pfoot"><a href="ilanlar.html">' + esc(T('İlanları gör →')) + '</a><span class="pcount">' + c.grade_count + ' ' + esc(T('Grade')) + '</span></div>' +
+        '</article>';
+    }).join('');
+    const sub = document.querySelector('#urunler .sub');
+    if (sub) sub.textContent = T('Şu an ilanı bulunan ürün grupları ve gradeler. Fiyat ve stok miktarı üyelerimize özeldir.');
+  } catch (e) {}
+})();
