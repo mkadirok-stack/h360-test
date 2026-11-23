@@ -81,7 +81,7 @@
     if (wa) wa.href = waLink(t('Merhaba, #{id} numaralı "{title}" ilanı için {n} palet ({q} {u}) hakkında bilgi almak istiyorum.', { id: l.id, title: l.title, n: n, q: qty, u: t(l.unit) }));
   };
   $('calc-n').addEventListener('input', calc); calc();
-  box.insertAdjacentHTML('beforeend', '<p class="hint">' + t('Fiyatlar depo teslimdir (ürünün bulunduğu şehirde). Nakliye dahil fiyat için bizimle iletişime geçebilirsiniz.') + '</p>');
+  box.insertAdjacentHTML('beforeend', '<p class="hint">' + t('Fiyatlar depo teslimdir (ürünün bulunduğu şehirde). Nakliye dahil fiyat için bizimle iletişime geçebilirsiniz.') + ' <a target="_blank" rel="noopener" href="' + waLink(t('Merhaba, #{id} numaralı "{title}" ilanı için adresime teslim (nakliye dahil) fiyat almak istiyorum.', { id: l.id, title: l.title })) + '">' + t('Adrese teslim fiyatı iste') + '</a></p>');
   // TDS: üreticinin bağlantısı (TDS ajanı bulur) ve/veya satıcının yüklediği PDF
   const tds = [];
   if (l.product_tds_url) tds.push('<a class="btn btn-sm" target="_blank" rel="nofollow noopener" href="' + esc(l.product_tds_url) + '">' + t('TDS (üretici)') + '</a>');
