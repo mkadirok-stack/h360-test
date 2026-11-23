@@ -304,3 +304,15 @@ ol.steps li::before{content:counter(s);position:absolute;left:14px;top:12px;widt
 .chg{display:inline-block;margin:4px 6px 4px 0;padding:3px 10px;border-radius:999px;font-size:.82rem;font-weight:600}
 .chg-down{background:#dcfae6;color:#067647}.chg-up{background:#fee4e2;color:#b42318}.chg-info{background:#e0ecff;color:#1d4ed8}
 .favcard .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* Ana sayfa canlı ürün kartları */
+.pcard{display:flex;flex-direction:column}
+.pcard .pfam{color:var(--muted);font-weight:600;letter-spacing:.02em}
+.pcard h3{margin:6px 0 8px}
+.pcard p{margin:0 0 10px;color:var(--muted);line-height:1.5}
+.ptags{display:flex;flex-wrap:wrap;gap:6px}
+.ptag{background:#eef3f9;color:var(--navy);border-radius:999px;padding:3px 10px;font-size:.8rem;font-weight:600}
+.ptag.pgrade{background:#fff;border:1px solid var(--line);font-weight:500}
+.pfoot{margin-top:auto;padding-top:12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line)}
+.pfoot a{font-weight:700}
+.pcount{color:var(--muted);font-size:.9rem;font-weight:600}
