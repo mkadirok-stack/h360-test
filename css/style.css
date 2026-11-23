@@ -271,3 +271,23 @@ fieldset.tiers legend{font-weight:600;font-size:.92rem;padding:0 6px}
 
 /* Geniş ekranlarda ilan kartları 4 sütun */
 @media (min-width:1280px){.listings{grid-template-columns:repeat(4,1fr)}}
+
+/* Koşullar sayfası + altbilgi bağlantıları */
+.legal h2{margin-top:32px;scroll-margin-top:90px}
+.legal ol{padding-left:22px}.legal li{margin:8px 0;line-height:1.6}
+.draft-note{background:#fff7e0;border:1px solid #f0d78a;border-radius:10px;padding:12px 14px;font-size:.92rem}
+.toc{display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 0 8px}
+.toc a{font-weight:600}
+.footer .flinks{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px}
+.footer .flinks a{color:#d3deea;text-decoration:underline}
+
+/* Nasıl çalışır / SSS */
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:20px 0 28px;display:grid;gap:12px}
+ol.steps li{counter-increment:s;position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px 14px 56px;line-height:1.55}
+ol.steps li::before{content:counter(s);position:absolute;left:14px;top:12px;width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.faq details{background:#fff;border:1px solid var(--line);border-radius:10px;margin:8px 0;padding:0 16px}
+.faq summary{cursor:pointer;font-weight:600;padding:14px 0;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";float:right;font-weight:700}
+.faq details[open] summary::after{content:"−"}
+.faq details p{margin:0 0 14px;line-height:1.6;color:var(--muted)}
