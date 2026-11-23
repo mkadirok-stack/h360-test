@@ -119,6 +119,8 @@
     'Mesaj gönderin': ['Send a message', 'Envoyer un message', 'أرسل رسالة'],
     'Adres': ['Address', 'Adresse', 'العنوان'],
     'Adres bilgisi eklenecek': ['Address to be added', 'Adresse à venir', 'سيتم إضافة العنوان'],
+    'Koşullar ve Sözleşmeler': ['Terms and Agreements', 'Conditions et contrats', 'الشروط والاتفاقيات'],
+    'Üyelik sözleşmesi ve satış koşulları': ['Membership agreement and sales terms', "Contrat d'adhésion et conditions de vente", 'اتفاقية العضوية وشروط البيع'],
     'Hammadde360. Tüm hakları saklıdır.': ['Hammadde360. All rights reserved.', 'Hammadde360. Tous droits réservés.', 'Hammadde360. جميع الحقوق محفوظة.'],
     'Lütfen ad, telefon, e-posta ve ürün alanlarını doldurun.': ['Please fill in name, phone, email and product.', 'Veuillez renseigner le nom, le téléphone, l\'e-mail et le produit.', 'يرجى ملء الاسم والهاتف والبريد الإلكتروني والمنتج.'],
     'Devam etmek için onay kutusunu işaretleyin.': ['Please tick the consent box to continue.', 'Cochez la case de consentement pour continuer.', 'يرجى تحديد خانة الموافقة للمتابعة.'],

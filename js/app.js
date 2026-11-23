@@ -53,6 +53,11 @@
       '<button class="menu-btn" aria-label="Menüyü aç" aria-expanded="false">☰</button>' +
       '<nav class="menu" id="menu">' + links.map(l => '<a href="' + l[0] + '">' + l[1] + '</a>').join('') + auth + '</nav>' +
       '</div></header>';
+    if (!document.querySelector('footer.footer')) {
+      const f = document.createElement('footer'); f.className = 'footer';
+      f.innerHTML = '<div class="container"><span>© ' + new Date().getFullYear() + ' ' + tt('Hammadde360. Tüm hakları saklıdır.') + '</span><div class="flinks"><a href="kosullar.html">' + tt('Koşullar ve Sözleşmeler') + '</a></div></div>';
+      document.body.appendChild(f);
+    }
     const btn = host.querySelector('.menu-btn'), menu = host.querySelector('#menu');
     btn.addEventListener('click', () => { const o = menu.classList.toggle('open'); btn.setAttribute('aria-expanded', o); });
     const lo = document.getElementById('logout');

@@ -103,6 +103,8 @@ window.I18N_RU = {
   'Mesaj gönderin': 'Отправить сообщение',
   'Adres': 'Адрес',
   'Adres bilgisi eklenecek': 'Адрес будет добавлен',
+  'Koşullar ve Sözleşmeler': 'Условия и договоры',
+  'Üyelik sözleşmesi ve satış koşulları': 'Договор членства и условия продажи',
   'Hammadde360. Tüm hakları saklıdır.': 'Hammadde360. Все права защищены.',
   'Lütfen ad, telefon, e-posta ve ürün alanlarını doldurun.': 'Пожалуйста, заполните имя, телефон, эл. почту и продукт.',
   'Devam etmek için onay kutusunu işaretleyin.': 'Чтобы продолжить, поставьте отметку о согласии.',
