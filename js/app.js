@@ -36,6 +36,7 @@
 
   function renderHeader(p, fx) {
     const links = [['index.html', 'Ana Sayfa'], ['ilanlar.html', 'İlanlar'], ['haberler.html', 'Haberler'], ['nasil-calisir.html', 'Nasıl Çalışır']];
+    if (p) links.push(['favorilerim.html', 'Favorilerim']);
     if (p && (p.role === 'seller' || p.role === 'admin')) links.push(['ilan-ver.html', 'İlan Ver']);
     if (p && p.role === 'admin') links.push(['admin.html', 'Yönetim']);
     const auth = p
@@ -89,5 +90,25 @@
   const stock = l => (l && l.availability === 'incoming' && l.expected_date)
     ? { incoming: true, cls: 'chip-warn', label: tt('Bağlantılı: {d} tarihinde stoğa girer', { d: new Date(l.expected_date + 'T00:00:00').toLocaleDateString(L) }) }
     : { incoming: false, cls: 'chip-ok', label: tt('Hazır stok') };
-  window.H = { sb, cfg, esc, money, tl, waLink, dateTR, getProfile, init, stock, fx: null };
+  // Favoriler (yalnızca giriş yapmış üyeler; RLS ile herkes kendi satırlarını görür)
+  const effPrice = l => Number(l.campaign_price != null ? l.campaign_price : l.list_price);
+  let favSet = null;
+  async function loadFavs() {
+    if (favSet) return favSet;
+    const { data } = await sb.from('favorites').select('listing_id');
+    favSet = new Set((data || []).map(r => r.listing_id));
+    return favSet;
+  }
+  // Açık/kapalı yapar; yeni durumu (true = favoride) döndürür, hata olursa null
+  async function toggleFav(l) {
+    const favs = await loadFavs();
+    if (favs.has(l.id)) {
+      const { error } = await sb.from('favorites').delete().eq('listing_id', l.id);
+      if (error) return null; favs.delete(l.id); return false;
+    }
+    const { error } = await sb.from('favorites').insert({ listing_id: l.id, seen_price: effPrice(l), seen_availability: l.availability || 'ready', seen_quantity: l.quantity });
+    if (error) return null; favs.add(l.id); return true;
+  }
+  const favBtn = (l, on) => '<button type="button" class="fav-btn' + (on ? ' on' : '') + '" data-fav="' + l.id + '" aria-pressed="' + !!on + '" title="' + tt(on ? 'Favorilerden çıkar' : 'Favorilere ekle') + '">' + (on ? '★' : '☆') + '</button>';
+  window.H = { sb, cfg, esc, money, tl, waLink, dateTR, getProfile, init, stock, loadFavs, toggleFav, favBtn, effPrice, fx: null };
 })();
