@@ -219,7 +219,7 @@ window.I18N_RU = {
   'Talep': 'Запрос',
   'Henüz talebiniz yok.': 'У вас пока нет запросов.',
   'Lütfen tüm alanları BÜYÜK HARFLE doldurun.': 'Пожалуйста, заполните все поля ЗАГЛАВНЫМИ БУКВАМИ.',
-  'Talebiniz alındı. 30 dakika içinde dönüş sağlanacaktır. İşlem tamamlandığında e-posta ile bilgilendirileceksiniz.': 'Ваш запрос получен. Ответ будет предоставлен в течение 30 минут. По завершении обработки вы получите уведомление по эл. почте.',
+  'Talebiniz alındı. En kısa sürede dönüş sağlanacaktır. İşlem tamamlandığında e-posta ile bilgilendirileceksiniz.': 'Ваш запрос получен. Мы свяжемся с вами в кратчайшие сроки. По завершении обработки вы получите уведомление по эл. почте.',
   'Evet, bu ürün': 'Да, этот продукт',
   'Hayır, farklı bir ürün': 'Нет, другой продукт',
   'İnceleniyor': 'На рассмотрении',

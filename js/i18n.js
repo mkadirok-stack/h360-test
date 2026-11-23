@@ -235,7 +235,7 @@
     'Talep': ['Request', 'Demande', 'الطلب'],
     'Henüz talebiniz yok.': ['You have no requests yet.', 'Vous n\'avez pas encore de demande.', 'ليس لديك طلبات بعد.'],
     'Lütfen tüm alanları BÜYÜK HARFLE doldurun.': ['Please fill in all fields in CAPITAL LETTERS.', 'Veuillez remplir tous les champs en MAJUSCULES.', 'يرجى ملء جميع الحقول بالأحرف الكبيرة.'],
-    'Talebiniz alındı. 30 dakika içinde dönüş sağlanacaktır. İşlem tamamlandığında e-posta ile bilgilendirileceksiniz.': ['Your request has been received. We will respond within 30 minutes. You will be notified by email when it is completed.', 'Votre demande a été reçue. Une réponse vous sera apportée sous 30 minutes. Vous serez informé par e-mail une fois le traitement terminé.', 'تم استلام طلبك. سيتم الرد خلال 30 دقيقة. سيتم إعلامك عبر البريد الإلكتروني عند اكتمال المعالجة.'],
+    'Talebiniz alındı. En kısa sürede dönüş sağlanacaktır. İşlem tamamlandığında e-posta ile bilgilendirileceksiniz.': ['Your request has been received. We will get back to you as soon as possible. You will be notified by email when it is completed.', 'Votre demande a été reçue. Nous reviendrons vers vous dans les meilleurs délais. Vous serez informé par e-mail une fois le traitement terminé.', 'تم استلام طلبك. سنرد عليك في أقرب وقت ممكن. سيتم إعلامك عبر البريد الإلكتروني عند اكتمال المعالجة.'],
     'Evet, bu ürün': ['Yes, this product', 'Oui, ce produit', 'نعم، هذا المنتج'],
     'Hayır, farklı bir ürün': ['No, a different product', 'Non, un autre produit', 'لا، منتج مختلف'],
     'İnceleniyor': ['Under review', 'En cours d\'examen', 'قيد المراجعة'],
