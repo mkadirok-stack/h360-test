@@ -60,6 +60,10 @@
         <p class="hint" id="pallet-hint" style="align-self:end">Minimum sipariş 1 palettir.</p>
       </div>
       <div class="row">
+        <label>Stok durumu<select name="availability" id="avail-sel"><option value="ready">Hazır stok</option><option value="incoming">Bağlantılı (stoğa girecek)</option></select></label>
+        <label id="avail-date-wrap" hidden>Stoğa giriş tarihi<input name="expected_date" id="avail-date" type="date"></label>
+      </div>
+      <div class="row">
         <label>KDV oranı
           <select name="vat_pct">
             <option value="20" selected>%20</option><option value="10">%10</option><option value="1">%1</option><option value="0">%0 (KDV'siz)</option>
@@ -192,6 +196,9 @@
     $('pallet-hint').textContent = (q > 0 && kg > 0) ? t('Minimum sipariş 1 palettir.') + ' ' + t('≈ {n} palet', { n: Math.floor(q / kg * 10) / 10 }) : t('Minimum sipariş 1 palettir.');
   };
   const palletKg = () => { const lf = $('listing-form').elements; return lf.pallet_sel.value === 'other' ? Number(lf.pallet_qty.value) : Number(lf.pallet_sel.value); };
+  const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  $('avail-date').min = todayISO();
+  $('avail-sel').addEventListener('change', () => { $('avail-date-wrap').hidden = $('avail-sel').value !== 'incoming'; });
   $('pallet-sel').addEventListener('change', () => { $('pallet-other-wrap').hidden = $('pallet-sel').value !== 'other'; palletHint(); });
   ['quantity', 'pallet_qty', 'unit'].forEach(n => $('listing-form').elements[n].addEventListener('input', palletHint));
 
@@ -265,6 +272,7 @@
       if (mn === '' || pr === '' || !Number.isInteger(m) || m <= prevMin || !(p > 0) || p > prevPrice) return say(note, t('Fiyat kademeleri geçersiz: palet sayısı artmalı, fiyat bir öncekinden yüksek olmamalı.'), 'err');
       tiers.push({ min_pallets: m, price: p }); prevMin = m; prevPrice = p;
     }
+    if (f.availability === 'incoming' && (!f.expected_date || f.expected_date < todayISO())) return say(note, t('Bağlantılı mal için geçerli bir stoğa giriş tarihi seçin.'), 'err');
     const pkg = palletKg();
     if (!(pkg >= 100 && pkg <= 5000)) return say(note, t('Palet ağırlığı 100 ile 5000 kg arasında olmalıdır.'), 'err');
     if (pkg > Number(f.quantity) * (f.unit === 'ton' ? 1000 : 1)) return say(note, t('Toplam miktar en az 1 palet olmalıdır.'), 'err');
@@ -280,11 +288,12 @@
     }
     const { error } = await sb.rpc('submit_listing', {
       p_title: f.title.trim(), p_description: (f.description || '').trim(), p_quantity: Number(f.quantity), p_unit: f.unit,
-      p_city: f.city.trim(), p_seller_price: Number(f.seller_price), p_vat_pct: Number(f.vat_pct), p_product_id: Number(S.code), p_attrs: a, p_tds_path: tdsPath, p_pallet_kg: pkg, p_price_tiers: tiers
+      p_city: f.city.trim(), p_seller_price: Number(f.seller_price), p_vat_pct: Number(f.vat_pct), p_product_id: Number(S.code), p_attrs: a, p_tds_path: tdsPath, p_pallet_kg: pkg, p_price_tiers: tiers,
+      p_availability: f.availability || 'ready', p_expected_date: f.availability === 'incoming' ? f.expected_date : null
     });
     btn.disabled = false;
     if (error) return say(note, t('Gönderilemedi: {m}', { m: error.message }), 'err');
-    form.reset(); delete form.dataset.pid;
+    form.reset(); delete form.dataset.pid; $('avail-date-wrap').hidden = true;
     say(note, t('İlanınız alındı. İncelendikten sonra yayınlanacak ve sizinle iletişime geçeceğiz.'), 'ok');
     loadMine();
   });

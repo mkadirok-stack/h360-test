@@ -82,6 +82,7 @@
       '<p class="meta"><b>Satıcı:</b> ' + esc(s.full_name) + (s.company ? ' · ' + esc(s.company) : '') + ' · ' + esc(s.phone) + ' · ' + esc(s.email) + (s.city ? ' · ' + esc(s.city) : '') + '</p>' +
       '<p class="meta"><b>Ürün:</b> ' + esc(l.product_type) + ' · ' + esc(l.quantity) + ' ' + esc(l.unit) + (l.city ? ' · ' + esc(l.city) : '') + (l.tds_path ? ' · <a href="#" data-tds="' + esc(l.tds_path) + '">TDS (PDF)</a>' : '') + '</p>' +
       '<p class="meta"><b>Palet:</b> 1 palet = ' + esc(l.pallet_qty) + ' ' + esc(l.unit) + ((l.price_tiers || []).length ? ' · <b>Kademeler (satıcı → liste):</b> ' + l.price_tiers.map(t => t.min_pallets + '+ palet: $' + t.price + ' → $' + (Math.round(t.price * (1 + Number(l.margin_pct) / 100) * 100) / 100)).join(' · ') : ' · kademe yok') + '</p>' +
+      '<p class="meta"><b>Stok:</b> ' + (l.availability === 'incoming' ? 'Bağlantılı — ' + dateTR(l.expected_date) + ' tarihinde stoğa girer' : 'Hazır stok') + ' · güncelleme: ' + dateTR(l.stock_updated_at) + '</p>' +
       (l.description ? '<p class="desc">' + esc(l.description) + '</p>' : '') +
       '<div class="agrid">' +
       '<label>Satıcı fiyatı (USD / ' + esc(l.unit) + ', KDV hariç)<input disabled data-f="sp" value="' + l.seller_price + '"></label>' +
@@ -89,6 +90,8 @@
       '<label>Liste fiyatı<input disabled data-f="lp" value=""></label>' +
       '<label>Kampanya fiyatı (boş = yok)<input type="number" step="0.01" min="0" data-f="cp" value="' + (l.campaign_price ?? '') + '"></label>' +
       '<label>KDV oranı<select data-f="vat">' + [20, 10, 1, 0].map(v => '<option value="' + v + '"' + (Number(l.vat_pct) === v ? ' selected' : '') + '>%' + v + '</option>').join('') + '</select></label>' +
+      '<label>Stok durumu<select data-f="avail"><option value="ready"' + (l.availability !== 'incoming' ? ' selected' : '') + '>Hazır stok</option><option value="incoming"' + (l.availability === 'incoming' ? ' selected' : '') + '>Bağlantılı</option></select></label>' +
+      '<label>Stoğa giriş tarihi (bağlantılıysa)<input type="date" data-f="exp" value="' + (l.expected_date || '') + '"></label>' +
       '<label>Kategori<select data-f="cat">' + catOptions(l.category_id) + '</select></label>' +
       '<label class="newcat" hidden>Yeni kategori adı<input data-f="newcat" placeholder="Örn: Plastik / PP"></label>' +
       '</div><p class="hint" data-hint></p><div class="actions">' + actions + '</div></article>';
@@ -179,7 +182,9 @@
     say('Kaydediliyor...');
     try {
       const category_id = await resolveCategory(el);
-      const patch = { margin_pct: m, campaign_price: cp, category_id, vat_pct: Number(el.querySelector('[data-f=vat]').value) };
+      const avail = el.querySelector('[data-f=avail]').value, exp = el.querySelector('[data-f=exp]').value;
+      if (avail === 'incoming' && !exp) return say('Bağlantılı mal için stoğa giriş tarihi girin.', 'err');
+      const patch = { margin_pct: m, campaign_price: cp, category_id, vat_pct: Number(el.querySelector('[data-f=vat]').value), availability: avail, expected_date: avail === 'incoming' ? exp : null };
       if (kind === 'publish') {
         if (!category_id) return say('Yayınlamadan önce bir kategori seçin veya oluşturun.', 'err');
         patch.status = 'published';

@@ -22,6 +22,7 @@
       <select id="citysel"><option value="">Tüm şehirler</option></select>
       <select id="brandsel"><option value="">Tüm markalar</option></select>
       <select id="matsel"><option value="">Tüm ürün grupları</option></select>
+      <select id="stocksel"><option value="">Tüm stok durumları</option><option value="ready">Hazır stok</option><option value="incoming">Bağlantılı</option></select>
       <select id="usagesel"><option value="">Tüm kullanım alanları</option></select>
       <input id="mfimin" type="number" step="any" min="0" placeholder="MFI en az">
       <input id="mfimax" type="number" step="any" min="0" placeholder="MFI en çok">
@@ -47,7 +48,7 @@
   const citysel = document.getElementById('citysel');
   [...new Set(data.map(l => l.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr')).forEach(c => citysel.insertAdjacentHTML('beforeend', '<option>' + esc(c) + '</option>'));
   const brandsel = document.getElementById('brandsel'), matsel = document.getElementById('matsel'), usagesel = document.getElementById('usagesel');
-  const mfimin = document.getElementById('mfimin'), mfimax = document.getElementById('mfimax');
+  const mfimin = document.getElementById('mfimin'), mfimax = document.getElementById('mfimax'), stocksel = document.getElementById('stocksel');
   const uniq = (fn) => [...new Set(data.map(fn).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'tr'));
   uniq(l => l.brand).forEach(v => brandsel.insertAdjacentHTML('beforeend', '<option>' + esc(v) + '</option>'));
   uniq(l => l.material).forEach(v => matsel.insertAdjacentHTML('beforeend', '<option>' + esc(v) + '</option>'));
@@ -67,6 +68,8 @@
     const a = l.attrs || {};
     const parts = Object.keys(a).filter(k => defMap[k] && defMap[k].show_in_list && a[k] !== '' && a[k] !== null)
       .map(k => '<span class="chip">' + esc(t(defMap[k].label)) + ': <b>' + esc(a[k]) + '</b>' + (defMap[k].unit ? ' ' + esc(defMap[k].unit) : '') + '</span>');
+    const sk = H.stock(l);
+    parts.unshift('<span class="chip ' + sk.cls + '">' + esc(sk.label) + '</span>');
     const pq = Number(l.pallet_qty || 1);
     parts.unshift('<span class="chip">' + t('Min. sipariş: 1 palet ({q} {u})', { q: Number(l.pallet_kg || 1000).toLocaleString('tr-TR'), u: 'kg' }) + '</span>');
     if ((l.price_tiers_public || []).length) parts.push('<span class="chip chip-hi">' + t('Palet bazlı fiyat') + '</span>');
@@ -82,7 +85,7 @@
 
   function render() {
     const term = q.value.trim().toLocaleLowerCase('tr'), c = cat.value;
-    const rows = data.filter(l => (!c || l.category === c) && (!citysel.value || l.city === citysel.value) && (!brandsel.value || l.brand === brandsel.value) && (!matsel.value || l.material === matsel.value) && (!usagesel.value || (l.attrs || {}).KULLANIM === usagesel.value) && mfiOk(l) &&
+    const rows = data.filter(l => (!c || l.category === c) && (!citysel.value || l.city === citysel.value) && (!brandsel.value || l.brand === brandsel.value) && (!matsel.value || l.material === matsel.value) && (!usagesel.value || (l.attrs || {}).KULLANIM === usagesel.value) && (!stocksel.value || (l.availability || 'ready') === stocksel.value) && mfiOk(l) &&
       (!term || [l.title, l.description, l.city, l.category].join(' ').toLocaleLowerCase('tr').includes(term)));
     if (!rows.length) { list.innerHTML = '<p class="sub">Şu anda gösterilecek ilan yok.</p>'; return; }
     list.innerHTML = rows.map(l => {
@@ -98,7 +101,7 @@
         '</article>';
     }).join('');
   }
-  q.addEventListener('input', render); cat.addEventListener('change', render); citysel.addEventListener('change', render); [brandsel, matsel, usagesel].forEach(e => e.addEventListener('change', render)); [mfimin, mfimax].forEach(e => e.addEventListener('input', render));
+  q.addEventListener('input', render); cat.addEventListener('change', render); citysel.addEventListener('change', render); [brandsel, matsel, usagesel, stocksel].forEach(e => e.addEventListener('change', render)); [mfimin, mfimax].forEach(e => e.addEventListener('input', render));
   render();
 })();
 </script>
