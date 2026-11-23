@@ -85,5 +85,9 @@
     return p;
   }
 
-  window.H = { sb, cfg, esc, money, tl, waLink, dateTR, getProfile, init, fx: null };
+  // Stok durumu: ready = hazır stok, incoming = bağlantılı (beklenen tarihte stoğa girer)
+  const stock = l => (l && l.availability === 'incoming' && l.expected_date)
+    ? { incoming: true, cls: 'chip-warn', label: tt('Bağlantılı: {d} tarihinde stoğa girer', { d: new Date(l.expected_date + 'T00:00:00').toLocaleDateString(L) }) }
+    : { incoming: false, cls: 'chip-ok', label: tt('Hazır stok') };
+  window.H = { sb, cfg, esc, money, tl, waLink, dateTR, getProfile, init, stock, fx: null };
 })();
