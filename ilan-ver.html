@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>İlan Ver | Hammadde360</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/i18n-ru.js"></script>
+  <script src="js/i18n.js"></script>
+</head>
+<body>
+<div id="site-top"></div>
+<main class="section alt">
+  <div class="container narrow">
+    <h2>İlan Ver</h2>
+    <p class="sub">Satmak istediğiniz hammaddenin bilgilerini girin. Talebiniz incelendikten sonra yayınlanır ve size dönüş yapılır.</p>
+
+    <div class="form" id="picker">
+      <label>Sektör
+        <select id="sel-sector"><option value="">Seçiniz</option></select>
+      </label>
+      <label id="w-material" hidden>Ürün grubu
+        <select id="sel-material"></select>
+      </label>
+      <label id="w-brand" hidden>Marka
+        <select id="sel-brand"></select>
+      </label>
+      <label id="w-code" hidden>Ürün kodu
+        <select id="sel-code"></select>
+      </label>
+    </div>
+
+    <!-- Listede yok: BÜYÜK HARFLE talep -->
+    <form id="req-form" class="form" hidden novalidate>
+      <p class="hint"><b>Aradığınız ürün listede yok.</b> Aşağıdaki bilgileri BÜYÜK HARFLE yazın. Talebiniz incelenip kataloğa eklenir.</p>
+      <label id="r-sector" hidden>Sektör adı<input name="sector" autocomplete="off" class="caps"></label>
+      <label id="r-material" hidden>Ürün grubu adı<input name="material" autocomplete="off" class="caps" placeholder="HDPE"></label>
+      <label id="r-brand" hidden>Marka adı<input name="brand" autocomplete="off" class="caps" placeholder="PETKİM"></label>
+      <label id="r-code">Ürün kodu<input name="code" autocomplete="off" class="caps" placeholder="S464"></label>
+      <label>Notunuz (isteğe bağlı)<textarea name="note" rows="2"></textarea></label>
+      <button class="btn" type="submit">Talebi Gönder</button>
+      <p class="form-note" id="req-note" role="status"></p>
+    </form>
+
+    <!-- Katalogda var: ilan formu -->
+    <form id="listing-form" class="form" hidden novalidate>
+      <label>İlan başlığı<input name="title" required></label>
+      <div id="attr-box" class="row"></div>
+      <div class="row">
+        <label>Miktar<input name="quantity" type="number" min="0" step="any" required></label>
+        <label>Birim
+          <select name="unit"><option value="ton">ton</option><option value="kg">kg</option></select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Palet ağırlığı (kg)<select name="pallet_sel" id="pallet-sel"><option value="1375">1.375 kg</option><option value="1500">1.500 kg</option><option value="other">Diğer (kg yazın)</option></select></label>
+        <label id="pallet-other-wrap" hidden>Palet ağırlığı (kg)<input name="pallet_qty" id="pallet-qty" type="number" min="100" max="5000" step="any" value="1375"></label>
+        <p class="hint" id="pallet-hint" style="align-self:end">Minimum sipariş 1 palettir.</p>
+      </div>
+      <div class="row">
+        <label>KDV oranı
+          <select name="vat_pct">
+            <option value="20" selected>%20</option><option value="10">%10</option><option value="1">%1</option><option value="0">%0 (KDV'siz)</option>
+          </select>
+        </label>
+        <p class="hint" style="align-self:end">Ürününüze uygulanan KDV oranını seçin. Fiyat KDV hariç girilir.</p>
+      </div>
+      <div class="row">
+        <label>Birim fiyatınız (USD / birim, KDV hariç)<input name="seller_price" type="number" min="0" step="any" required></label>
+        <label>Bulunduğu şehir (depo teslim)<select name="city" id="city-sel" required><option value="">Seçiniz</option></select></label>
+      </div>
+      <fieldset class="tiers">
+        <legend>Palet bazlı fiyat kademeleri <small>İsteğe bağlı</small></legend>
+        <p class="hint">1 palet fiyatı yukarıdaki birim fiyattır. Daha fazla palet için daha düşük fiyat verebilirsiniz.</p>
+        <div class="tier-row"><span>Palet ve üzeri</span><input type="number" min="2" step="1" data-tier="min" placeholder="5"><input type="number" min="0" step="any" data-tier="price" placeholder="USD"></div>
+        <div class="tier-row"><span>Palet ve üzeri</span><input type="number" min="2" step="1" data-tier="min" placeholder="10"><input type="number" min="0" step="any" data-tier="price" placeholder="USD"></div>
+        <div class="tier-row"><span>Palet ve üzeri</span><input type="number" min="2" step="1" data-tier="min" placeholder="24"><input type="number" min="0" step="any" data-tier="price" placeholder="USD"></div>
+      </fieldset>
+      <p class="hint">Fiyatlar depo teslimdir (ürünün bulunduğu şehirde). Nakliye dahil fiyat talep edilirse alıcılar bizimle iletişime geçer.</p>
+      <label>Açıklama<textarea name="description" rows="4" required placeholder="Kalite, özellik, renk, ambalaj, teslim koşulları vb."></textarea></label>
+      <label>TDS (teknik veri sayfası, PDF) <small>İsteğe bağlı</small><input type="file" name="tds" accept="application/pdf"></label>
+      <p class="hint">Yüklemezseniz sistem, üreticinin sitesinden TDS'yi kendisi bulmaya çalışır.</p>
+      <p class="hint">Fiyatlar USD cinsindendir ve KDV hariç girilir. Sitede alıcılara gösterilecek fiyat ve ilanın yayın şekli Hammadde360 tarafından belirlenir. Faturalandırma TCMB döviz satış kuru esas alınarak yapılır.</p>
+      <button class="btn" type="submit">İlanı Gönder</button>
+      <p class="form-note" id="note" role="status"></p>
+    </form>
+
+    <h2 style="margin-top:48px">Taleplerim</h2>
+    <div id="reqs" class="tablewrap"><p class="sub">Yükleniyor...</p></div>
+
+    <h2 style="margin-top:48px">İlanlarım</h2>
+    <div id="mine" class="tablewrap"><p class="sub">Yükleniyor...</p></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/support.js"></script>
+<script>
+(async () => {
+  const { sb, esc, money, dateTR } = H;
+  const me = await H.init({ require: ['seller', 'admin'] });
+  if (!me) return;
+
+  const $ = id => document.getElementById(id);
+  const up = s => (s || '').toLocaleUpperCase('tr');
+  const NEW = '__new';
+  const STATUS = { pending: ['Beklemede', 'b-wait'], published: ['Yayında', 'b-ok'], rejected: ['Reddedildi', 'b-bad'] };
+  const RSTATUS = {
+    pending: ['İnceleniyor', 'b-wait'], created: ['Oluşturuldu, ilan verebilirsiniz', 'b-ok'],
+    needs_confirmation: ['Yanıtınız bekleniyor', 'b-wait'], confirmed_same: ['Onaylandı', 'b-ok'],
+    confirmed_different: ['İşleniyor', 'b-wait'], rejected: ['Reddedildi', 'b-bad']
+  };
+
+  // ---- Katalog verisi
+  const [sec, mat, prod, attr] = await Promise.all([
+    sb.from('sectors').select('*').order('name'),
+    sb.from('materials').select('*').order('name'),
+    sb.from('products').select('id,code,material_id,brand_id,brand:brands(id,name)').order('code'),
+    sb.from('sector_attributes').select('*').order('sort')
+  ]);
+  const sectors = sec.data || [], materials = mat.data || [], products = prod.data || [], attrs = attr.data || [];
+
+  const opts = (rows, labelOf, valueOf) =>
+    '<option value="">' + t('Seçiniz') + '</option>' +
+    rows.map(r => '<option value="' + valueOf(r) + '">' + esc(labelOf(r)) + '</option>').join('') +
+    '<option value="' + NEW + '">' + t('LİSTEDE YOK') + '</option>';
+
+  $('sel-sector').innerHTML = opts(sectors, r => r.name, r => r.id);
+
+  // Şehir listesi: 81 il, İstanbul iki seçenek (Anadolu / Avrupa)
+  const ILLER = ['Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Aksaray', 'Amasya', 'Ankara', 'Antalya', 'Ardahan', 'Artvin', 'Aydın', 'Balıkesir', 'Bartın', 'Batman', 'Bayburt', 'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa',
+    'Çanakkale', 'Çankırı', 'Çorum', 'Denizli', 'Diyarbakır', 'Düzce', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkâri', 'Hatay', 'Iğdır', 'Isparta', 'İstanbul (Anadolu)', 'İstanbul (Avrupa)', 'İzmir',
+    'Kahramanmaraş', 'Karabük', 'Karaman', 'Kars', 'Kastamonu', 'Kayseri', 'Kilis', 'Kırıkkale', 'Kırklareli', 'Kırşehir', 'Kocaeli', 'Konya', 'Kütahya', 'Malatya', 'Manisa', 'Mardin', 'Mersin', 'Muğla', 'Muş', 'Nevşehir', 'Niğde', 'Ordu', 'Osmaniye', 'Rize',
+    'Sakarya', 'Samsun', 'Siirt', 'Sinop', 'Sivas', 'Şanlıurfa', 'Şırnak', 'Tekirdağ', 'Tokat', 'Trabzon', 'Tunceli', 'Uşak', 'Van', 'Yalova', 'Yozgat', 'Zonguldak'].sort((a, b) => a.localeCompare(b, 'tr'));
+  $('city-sel').insertAdjacentHTML('beforeend', ILLER.map(c => '<option value="' + c + '">' + c + '</option>').join(''));
+
+  const S = { sector: '', material: '', brand: '', code: '' };
+
+  // listede olmayan ilk seviye (0 sektör, 1 ürün grubu, 2 marka, 3 kod); hepsi seçildiyse -1; eksik seçim varsa -2
+  function level() {
+    const order = ['sector', 'material', 'brand', 'code'];
+    for (let i = 0; i < 4; i++) { if (S[order[i]] === NEW) return i; if (!S[order[i]]) return -2; }
+    return -1;
+  }
+
+  function refresh() {
+    const lv = level();
+    const okSector = S.sector && S.sector !== NEW;
+    const okMat = okSector && S.material && S.material !== NEW;
+    const okBrand = okMat && S.brand && S.brand !== NEW;
+    $('w-material').hidden = !okSector;
+    $('w-brand').hidden = !okMat;
+    $('w-code').hidden = !okBrand;
+
+    const reqMode = lv >= 0;
+    $('req-form').hidden = !reqMode;
+    ['r-sector', 'r-material', 'r-brand', 'r-code'].forEach((id, i) => { $(id).hidden = !(reqMode && i >= lv); });
+
+    const listMode = lv === -1 && S.code && S.code !== NEW;
+    $('listing-form').hidden = !listMode;
+    if (listMode) fillListing();
+  }
+
+  function fillListing() {
+    const p = products.find(x => String(x.id) === String(S.code));
+    const m = materials.find(x => String(x.id) === String(S.material));
+    if (!p || !m) return;
+    const f = $('listing-form');
+    if (f.dataset.pid !== String(p.id)) {
+      f.elements.title.value = [m.name, p.brand && p.brand.name, p.code].filter(Boolean).join(' ');
+      f.dataset.pid = String(p.id);
+      const sectorAttrs = attrs.filter(a => String(a.sector_id) === String(m.sector_id));
+      $('attr-box').innerHTML = sectorAttrs.map(a => {
+        const label = '<span class="lt">' + esc(a.label) + '</span>' + (a.unit ? ' <small>(' + esc(a.unit) + ')</small>' : '') + (a.required ? ' *' : '');
+        let input;
+        if (a.kind === 'select') input = '<select data-attr="' + esc(a.key) + '"' + (a.required ? ' data-req="1"' : '') + '><option value="">' + t('Seçiniz') + '</option>' + (a.options || []).map(o => '<option>' + esc(o) + '</option>').join('') + '</select>';
+        else if (a.kind === 'number') input = '<input data-attr="' + esc(a.key) + '"' + (a.required ? ' data-req="1"' : '') + ' type="number" step="any" min="0">';
+        else input = '<input data-attr="' + esc(a.key) + '"' + (a.required ? ' data-req="1"' : '') + '>';
+        return '<label>' + label + input + '</label>';
+      }).join('');
+    }
+  }
+
+  // Toplam miktar ve palet başına miktardan "≈ N palet" bilgisi
+  const palletHint = () => {
+    const lf = $('listing-form').elements;
+    const kg = palletKg(), q = Number(lf.quantity.value) * (lf.unit.value === 'ton' ? 1000 : 1);
+    $('pallet-hint').textContent = (q > 0 && kg > 0) ? t('Minimum sipariş 1 palettir.') + ' ' + t('≈ {n} palet', { n: Math.floor(q / kg * 10) / 10 }) : t('Minimum sipariş 1 palettir.');
+  };
+  const palletKg = () => { const lf = $('listing-form').elements; return lf.pallet_sel.value === 'other' ? Number(lf.pallet_qty.value) : Number(lf.pallet_sel.value); };
+  $('pallet-sel').addEventListener('change', () => { $('pallet-other-wrap').hidden = $('pallet-sel').value !== 'other'; palletHint(); });
+  ['quantity', 'pallet_qty', 'unit'].forEach(n => $('listing-form').elements[n].addEventListener('input', palletHint));
+
+  // ---- Seçimler (sırayla)
+  $('sel-sector').addEventListener('change', e => {
+    S.sector = e.target.value; S.material = S.brand = S.code = '';
+    const rows = materials.filter(m => String(m.sector_id) === S.sector);
+    $('sel-material').innerHTML = opts(rows, r => r.name, r => r.id);
+    refresh();
+  });
+  $('sel-material').addEventListener('change', e => {
+    S.material = e.target.value; S.brand = S.code = '';
+    const seen = new Map();
+    products.filter(p => String(p.material_id) === S.material && p.brand).forEach(p => seen.set(p.brand.id, p.brand.name));
+    $('sel-brand').innerHTML = opts([...seen].map(([id, name]) => ({ id, name })), r => r.name, r => r.id);
+    refresh();
+  });
+  $('sel-brand').addEventListener('change', e => {
+    S.brand = e.target.value; S.code = '';
+    const rows = products.filter(p => String(p.material_id) === S.material && String(p.brand_id) === S.brand);
+    $('sel-code').innerHTML = opts(rows, r => r.code, r => r.id);
+    refresh();
+  });
+  $('sel-code').addEventListener('change', e => { S.code = e.target.value; refresh(); });
+
+  // ---- BÜYÜK HARF zorunluluğu (Türkçe İ/I kurallarıyla)
+  document.querySelectorAll('input.caps').forEach(inp => inp.addEventListener('input', () => {
+    const pos = inp.selectionStart; inp.value = up(inp.value); try { inp.setSelectionRange(pos, pos); } catch (e) {}
+  }));
+
+  // ---- Talep gönder
+  const rf = $('req-form'), rnote = $('req-note');
+  const say = (el, m, c) => { el.textContent = m; el.className = 'form-note ' + (c || ''); };
+  rf.addEventListener('submit', async e => {
+    e.preventDefault();
+    const lv = level(), f = rf.elements;
+    const txt = n => up((f[n].value || '').trim());
+    const body = {
+      p_sector_id: S.sector && S.sector !== NEW ? Number(S.sector) : null, p_sector_text: lv === 0 ? txt('sector') : null,
+      p_material_id: S.material && S.material !== NEW ? Number(S.material) : null, p_material_text: lv >= 0 && lv <= 1 ? txt('material') : null,
+      p_brand_id: S.brand && S.brand !== NEW ? Number(S.brand) : null, p_brand_text: lv >= 0 && lv <= 2 ? txt('brand') : null,
+      p_code_text: txt('code'), p_note: (f.note.value || '').trim() || null
+    };
+    const eksik = (lv === 0 && !body.p_sector_text) || (lv <= 1 && !body.p_material_text) || (lv <= 2 && !body.p_brand_text) || !body.p_code_text;
+    if (eksik) return say(rnote, t('Lütfen tüm alanları BÜYÜK HARFLE doldurun.'), 'err');
+    const btn = rf.querySelector('button[type=submit]'); btn.disabled = true; say(rnote, t('Gönderiliyor...'));
+    const { error } = await sb.rpc('submit_catalog_request', body);
+    btn.disabled = false;
+    if (error) return say(rnote, t('Gönderilemedi: {m}', { m: error.message }), 'err');
+    rf.reset();
+    say(rnote, t('Talebiniz alındı. 30 dakika içinde dönüş sağlanacaktır. İşlem tamamlandığında e-posta ile bilgilendirileceksiniz.'), 'ok');
+    loadReqs();
+  });
+
+  // ---- İlan gönder
+  const form = $('listing-form'), note = $('note');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(form));
+    const eksikAlan = [...form.querySelectorAll('[data-req]')].some(el => el.value === '');
+    if (!f.title.trim() || !f.quantity || !palletKg() || !f.seller_price || !f.city || !(f.description || '').trim() || eksikAlan) return say(note, t('Tüm alanlar zorunludur (TDS hariç).'), 'err');
+    const a = {};
+    form.querySelectorAll('[data-attr]').forEach(el => { if (el.value !== '') a[el.dataset.attr] = el.type === 'number' ? Number(el.value) : el.value; });
+    // Palet bazlı fiyat kademeleri (isteğe bağlı): palet sayısı artar, fiyat bir öncekinden yüksek olmaz
+    const tiers = [], rows = [...form.querySelectorAll('.tier-row')];
+    let prevMin = 1, prevPrice = Number(f.seller_price);
+    for (const r of rows) {
+      const mn = r.querySelector('[data-tier=min]').value, pr = r.querySelector('[data-tier=price]').value;
+      if (mn === '' && pr === '') continue;
+      const m = Number(mn), p = Number(pr);
+      if (mn === '' || pr === '' || !Number.isInteger(m) || m <= prevMin || !(p > 0) || p > prevPrice) return say(note, t('Fiyat kademeleri geçersiz: palet sayısı artmalı, fiyat bir öncekinden yüksek olmamalı.'), 'err');
+      tiers.push({ min_pallets: m, price: p }); prevMin = m; prevPrice = p;
+    }
+    const pkg = palletKg();
+    if (!(pkg >= 100 && pkg <= 5000)) return say(note, t('Palet ağırlığı 100 ile 5000 kg arasında olmalıdır.'), 'err');
+    if (pkg > Number(f.quantity) * (f.unit === 'ton' ? 1000 : 1)) return say(note, t('Toplam miktar en az 1 palet olmalıdır.'), 'err');
+    const btn = form.querySelector('button[type=submit]'); btn.disabled = true; say(note, t('Gönderiliyor...'));
+    // İsteğe bağlı TDS (PDF, en fazla 5 MB) — kendi klasörüne yüklenir
+    let tdsPath = null;
+    const dosya = form.elements.tds && form.elements.tds.files && form.elements.tds.files[0];
+    if (dosya) {
+      if (dosya.type !== 'application/pdf' || dosya.size > 5 * 1024 * 1024) { btn.disabled = false; return say(note, t('TDS dosyası en fazla 5 MB ve PDF olmalıdır.'), 'err'); }
+      tdsPath = me.id + '/' + Date.now() + '-' + dosya.name.replace(/[^A-Za-z0-9._-]/g, '_');
+      const up = await sb.storage.from('tds').upload(tdsPath, dosya, { contentType: 'application/pdf' });
+      if (up.error) { btn.disabled = false; return say(note, t('TDS yüklenemedi: {m}', { m: up.error.message }), 'err'); }
+    }
+    const { error } = await sb.rpc('submit_listing', {
+      p_title: f.title.trim(), p_description: (f.description || '').trim(), p_quantity: Number(f.quantity), p_unit: f.unit,
+      p_city: f.city.trim(), p_seller_price: Number(f.seller_price), p_vat_pct: Number(f.vat_pct), p_product_id: Number(S.code), p_attrs: a, p_tds_path: tdsPath, p_pallet_kg: pkg, p_price_tiers: tiers
+    });
+    btn.disabled = false;
+    if (error) return say(note, t('Gönderilemedi: {m}', { m: error.message }), 'err');
+    form.reset(); delete form.dataset.pid;
+    say(note, t('İlanınız alındı. İncelendikten sonra yayınlanacak ve sizinle iletişime geçeceğiz.'), 'ok');
+    loadMine();
+  });
+
+  // ---- Listeler
+  async function loadReqs() {
+    const { data, error } = await sb.from('catalog_requests').select('*').order('created_at', { ascending: false });
+    const box = $('reqs');
+    if (error) { box.innerHTML = '<p class="form-note err">' + t('İlanlar yüklenemedi.') + '</p>'; return; }
+    if (!data.length) { box.innerHTML = '<p class="sub">' + t('Henüz talebiniz yok.') + '</p>'; return; }
+    box.innerHTML = '<table class="table"><thead><tr><th>' + t('Tarih') + '</th><th>' + t('Talep') + '</th><th>' + t('Durum') + '</th></tr></thead><tbody>' +
+      data.map(r => {
+        const nm = [r.sector_text, r.material_text, r.brand_text, r.code_text].filter(Boolean).join(' / ');
+        const s = RSTATUS[r.status] || [r.status, ''];
+        const ask = r.status === 'needs_confirmation'
+          ? '<div class="ask"><div>' + esc(r.agent_note || '') + '</div><button class="btn btn-sm" data-ans="1" data-id="' + r.id + '" type="button">' + t('Evet, bu ürün') + '</button> <button class="btn btn-sm btn-dark" data-ans="0" data-id="' + r.id + '" type="button">' + t('Hayır, farklı bir ürün') + '</button></div>' : '';
+        return '<tr><td>' + dateTR(r.created_at) + '</td><td>' + esc(nm) + ask + '</td><td><span class="badge ' + s[1] + '">' + t(s[0]) + '</span></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  $('reqs').addEventListener('click', async e => {
+    const b = e.target.closest('[data-ans]'); if (!b) return;
+    b.disabled = true;
+    const { error } = await sb.rpc('answer_catalog_request', { p_id: Number(b.dataset.id), p_same: b.dataset.ans === '1' });
+    if (error) alert(error.message);
+    loadReqs();
+  });
+
+  async function loadMine() {
+    const { data, error } = await sb.from('my_listings').select('*').order('created_at', { ascending: false });
+    const box = $('mine');
+    if (error) { box.innerHTML = '<p class="form-note err">' + t('İlanlar yüklenemedi.') + '</p>'; return; }
+    if (!data.length) { box.innerHTML = '<p class="sub">' + t('Henüz ilanınız yok.') + '</p>'; return; }
+    box.innerHTML = '<table class="table"><thead><tr><th>' + t('Tarih') + '</th><th>' + t('İlan') + '</th><th>' + t('Miktar') + '</th><th>' + t('Fiyatınız') + '</th><th>' + t('Durum') + '</th></tr></thead><tbody>' +
+      data.map(l => {
+        const s = STATUS[l.status] || [l.status, ''];
+        return '<tr><td>' + dateTR(l.created_at) + '</td><td>' + esc(l.title) + '</td><td>' + esc(l.quantity) + ' ' + esc(t(l.unit)) +
+          '</td><td>' + money(l.seller_price) + ' ' + t('/ {u} + %{v} KDV', { u: esc(t(l.unit)), v: Number(l.vat_pct ?? 20) }) + '</td><td><span class="badge ' + s[1] + '">' + t(s[0]) + '</span></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  loadReqs(); loadMine();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Listeden Çık | Hammadde360</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main class="section alt">
+  <div class="container narrow">
+    <div class="gate">
+      <h2>Hammadde360</h2>
+      <p id="msg">İşleminiz yapılıyor...</p>
+      <a class="btn" href="index.html">Ana Sayfa</a>
+    </div>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script>
+(async () => {
+  const msg = document.getElementById('msg');
+  const token = new URLSearchParams(location.search).get('t') || '';
+  if (!/^[0-9a-f-]{36}$/i.test(token)) { msg.textContent = 'Bağlantı geçersiz.'; return; }
+  const sb = window.supabase.createClient(window.H360.SUPABASE_URL, window.H360.SUPABASE_KEY);
+  const { data, error } = await sb.rpc('unsubscribe', { p_token: token });
+  if (error) { msg.textContent = 'İşlem şu anda yapılamadı. Lütfen daha sonra tekrar deneyin veya info@hammadde360.com adresine yazın.'; return; }
+  msg.textContent = data === 'ok'
+    ? 'Listeden çıkarıldınız. Bundan sonra size ticari elektronik ileti göndermeyeceğiz.'
+    : 'Bu bağlantıyla kayıtlı bir abonelik bulunamadı veya zaten listeden çıkarılmışsınız.';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>İlanlar | Hammadde360</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/i18n-ru.js"></script>
+  <script src="js/i18n.js"></script>
+</head>
+<body>
+<div id="site-top"></div>
+<main class="section">
+  <div class="container">
+    <h2>İlanlar</h2>
+    <p class="sub">Yayındaki hammadde ilanları. Sorularınız ve teklifleriniz için WhatsApp'tan bize yazabilirsiniz.</p>
+    <div class="filters">
+      <input id="q" type="search" placeholder="Ara: ürün, şehir...">
+      <select id="cat"><option value="">Tüm kategoriler</option></select>
+      <select id="citysel"><option value="">Tüm şehirler</option></select>
+      <select id="brandsel"><option value="">Tüm markalar</option></select>
+      <select id="matsel"><option value="">Tüm ürün grupları</option></select>
+      <select id="usagesel"><option value="">Tüm kullanım alanları</option></select>
+      <input id="mfimin" type="number" step="any" min="0" placeholder="MFI en az">
+      <input id="mfimax" type="number" step="any" min="0" placeholder="MFI en çok">
+    </div>
+    <div id="list" class="grid listings"><p class="sub">Yükleniyor...</p></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/support.js"></script>
+<script>
+(async () => {
+  const { sb, esc, money, tl, waLink } = H;
+  const me = await H.init({ require: 'login' });
+  if (!me) return;
+
+  const { data, error } = await sb.from('public_listings').select('*').order('published_at', { ascending: false });
+  const list = document.getElementById('list'), q = document.getElementById('q'), cat = document.getElementById('cat');
+  if (error) { list.innerHTML = '<p class="form-note err">İlanlar yüklenemedi.</p>'; return; }
+
+  const citysel = document.getElementById('citysel');
+  [...new Set(data.map(l => l.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr')).forEach(c => citysel.insertAdjacentHTML('beforeend', '<option>' + esc(c) + '</option>'));
+  const brandsel = document.getElementById('brandsel'), matsel = document.getElementById('matsel'), usagesel = document.getElementById('usagesel');
+  const mfimin = document.getElementById('mfimin'), mfimax = document.getElementById('mfimax');
+  const uniq = (fn) => [...new Set(data.map(fn).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'tr'));
+  uniq(l => l.brand).forEach(v => brandsel.insertAdjacentHTML('beforeend', '<option>' + esc(v) + '</option>'));
+  uniq(l => l.material).forEach(v => matsel.insertAdjacentHTML('beforeend', '<option>' + esc(v) + '</option>'));
+  uniq(l => (l.attrs || {}).KULLANIM).forEach(v => usagesel.insertAdjacentHTML('beforeend', '<option value="' + esc(v) + '">' + esc(t(v)) + '</option>'));
+  const mfiOk = l => {
+    const lo = parseFloat(mfimin.value), hi = parseFloat(mfimax.value);
+    if (isNaN(lo) && isNaN(hi)) return true;
+    const raw = (l.attrs || {}).MFI, v = Number(raw);
+    if (raw === undefined || raw === '' || !isFinite(v)) return false;
+    return (isNaN(lo) || v >= lo) && (isNaN(hi) || v <= hi);
+  };
+  [...new Set(data.map(l => l.category).filter(Boolean))].sort().forEach(c => cat.insertAdjacentHTML('beforeend', '<option>' + esc(c) + '</option>'));
+
+  const { data: defs } = await sb.from('sector_attributes').select('*').order('sort');
+  const defMap = {}; (defs || []).forEach(d => { defMap[d.key] = d; });
+  function chips(l) {
+    const a = l.attrs || {};
+    const parts = Object.keys(a).filter(k => defMap[k] && defMap[k].show_in_list && a[k] !== '' && a[k] !== null)
+      .map(k => '<span class="chip">' + esc(t(defMap[k].label)) + ': <b>' + esc(a[k]) + '</b>' + (defMap[k].unit ? ' ' + esc(defMap[k].unit) : '') + '</span>');
+    const pq = Number(l.pallet_qty || 1);
+    parts.unshift('<span class="chip">' + t('Min. sipariş: 1 palet ({q} {u})', { q: Number(l.pallet_kg || 1000).toLocaleString('tr-TR'), u: 'kg' }) + '</span>');
+    if ((l.price_tiers_public || []).length) parts.push('<span class="chip chip-hi">' + t('Palet bazlı fiyat') + '</span>');
+    return '<p class="chips">' + parts.join('') + '</p>';
+  }
+
+  function priceHTML(l) {
+    const u = ' ' + t('/ {u} + %{v} KDV', { u: esc(t(l.unit || 'birim')), v: Number(l.vat_pct ?? 20) });
+    const fx = H.fx && H.fx.usd_sell;
+    if (l.campaign_price) return '<div class="price"><s>' + money(l.list_price) + '</s> <strong class="camp">' + money(l.campaign_price) + '</strong><small>' + u + '</small><div class="tlp">' + tl(l.campaign_price, fx) + u + '</div><div class="cashnote">' + t('Nakit ödemede %{n} iskonto', { n: H.cfg.CASH_DISCOUNT_PCT }) + '</div></div>';
+    return '<div class="price"><strong>' + money(l.list_price) + '</strong><small>' + u + '</small><div class="tlp">' + tl(l.list_price, fx) + u + '</div><div class="cashnote">' + t('Nakit ödemede %{n} iskonto', { n: H.cfg.CASH_DISCOUNT_PCT }) + '</div></div>';
+  }
+
+  function render() {
+    const term = q.value.trim().toLocaleLowerCase('tr'), c = cat.value;
+    const rows = data.filter(l => (!c || l.category === c) && (!citysel.value || l.city === citysel.value) && (!brandsel.value || l.brand === brandsel.value) && (!matsel.value || l.material === matsel.value) && (!usagesel.value || (l.attrs || {}).KULLANIM === usagesel.value) && mfiOk(l) &&
+      (!term || [l.title, l.description, l.city, l.category].join(' ').toLocaleLowerCase('tr').includes(term)));
+    if (!rows.length) { list.innerHTML = '<p class="sub">Şu anda gösterilecek ilan yok.</p>'; return; }
+    list.innerHTML = rows.map(l => {
+      const msg = t('Merhaba, #{id} numaralı "{title}" ilanı hakkında bilgi almak istiyorum.', { id: l.id, title: l.title });
+      return '<article class="card listing">' +
+        (l.category ? '<span class="badge">' + esc(l.category) + '</span>' : '') +
+        '<h3><a href="ilan.html?id=' + l.id + '">' + esc(l.title) + '</a></h3>' +
+        (l.material ? '<p class="meta">' + esc([l.material, l.brand, l.product_code].filter(Boolean).join(' · ')) + '</p>' : '') + chips(l) +
+        '<p class="meta">' + esc(l.quantity) + ' ' + esc(t(l.unit)) + (l.city ? ' · ' + t('Depo teslim') + ': ' + esc(l.city) : '') + '</p>' +
+        priceHTML(l) +
+        '<div class="lactions"><a class="btn btn-sm" href="ilan.html?id=' + l.id + '">Detay</a>' +
+        '<a class="wa-btn" target="_blank" rel="noopener" href="' + waLink(msg) + '" aria-label="WhatsApp ile sor">' + '<svg viewBox="0 0 32 32" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16 3C9 3 3.4 8.6 3.4 15.5c0 2.3.6 4.4 1.7 6.3L3 29l7.4-2c1.8 1 3.8 1.5 5.6 1.5 7 0 12.6-5.6 12.6-12.5S23 3 16 3z"/></svg> WhatsApp</a></div>' +
+        '</article>';
+    }).join('');
+  }
+  q.addEventListener('input', render); cat.addEventListener('change', render); citysel.addEventListener('change', render); [brandsel, matsel, usagesel].forEach(e => e.addEventListener('change', render)); [mfimin, mfimax].forEach(e => e.addEventListener('input', render));
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Giriş / Üye Ol | Hammadde360</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/i18n-ru.js"></script>
+  <script src="js/i18n.js"></script>
+</head>
+<body>
+<div id="site-top"></div>
+<main class="section alt">
+  <div class="container narrow">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="login" type="button">Giriş Yap</button>
+      <button class="tab" data-tab="signup" type="button">Üye Ol</button>
+    </div>
+
+    <form id="login-form" class="form" novalidate>
+      <label>E-posta<input name="email" type="email" required autocomplete="email"></label>
+      <label>Şifre<input name="password" type="password" required autocomplete="current-password"></label>
+      <button class="btn" type="submit">Giriş Yap</button>
+      <p class="form-note" id="login-note" role="status"></p>
+    </form>
+
+    <form id="signup-form" class="form" hidden novalidate>
+      <fieldset class="roles">
+        <legend>Üyelik türü</legend>
+        <label class="radio"><input type="radio" name="role" value="buyer" checked> <span><b>Alıcı</b><small>Hammadde arıyorum</small></span></label>
+        <label class="radio"><input type="radio" name="role" value="seller"> <span><b>Satıcı</b><small>Elimdeki malı satmak istiyorum</small></span></label>
+      </fieldset>
+      <div class="row">
+        <label>Ad Soyad<input name="full_name" required autocomplete="name"></label>
+        <label>Firma<input name="company" autocomplete="organization"></label>
+      </div>
+      <div class="row">
+        <label>Telefon<input name="phone" type="tel" required autocomplete="tel"></label>
+        <label>Şehir<input name="city" autocomplete="address-level1"></label>
+      </div>
+      <fieldset class="interests">
+        <legend id="interests-label">İlgilendiğiniz ürün grupları</legend>
+        <div id="interest-box" class="interest-box"><span class="hint">Yükleniyor...</span></div>
+      </fieldset>
+      <div class="row">
+        <label>E-posta<input name="email" type="email" required autocomplete="email"></label>
+        <label>Şifre (en az 8 karakter)<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="kvkk" required> <span>Kişisel verilerimin üyelik ve ilan süreçlerinde işlenmesini kabul ediyorum. (Aydınlatma metni şirket kurulduktan sonra eklenecektir.)</span></label>
+      <label class="check"><input type="checkbox" name="marketing"> <span>Kampanya, duyuru ve yeni ilanlardan e-posta ile haberdar olmak istiyorum. (İsteğe bağlı)</span></label>
+      <button class="btn" type="submit">Üye Ol</button>
+      <p class="form-note" id="signup-note" role="status"></p>
+    </form>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/support.js"></script>
+<script>
+(async () => {
+  const { sb } = H;
+  const me = await H.init();
+  const go = role => { location.href = role === 'admin' ? 'admin.html' : role === 'seller' ? 'ilan-ver.html' : 'ilanlar.html'; };
+  if (me) return go(me.role);
+
+  const $ = s => document.querySelector(s);
+  const loginForm = $('#login-form'), signupForm = $('#signup-form');
+  function showTab(t) {
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+    loginForm.hidden = t !== 'login'; signupForm.hidden = t !== 'signup';
+  }
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  if (new URLSearchParams(location.search).get('mod') === 'uye') showTab('signup');
+
+  signupForm.addEventListener('change', e => {
+    if (e.target.name === 'role') $('#interests-label').textContent = t(e.target.value === 'seller' ? 'Sattığınız ürün grupları' : 'İlgilendiğiniz ürün grupları');
+  });
+
+  const say = (el, msg, cls) => { el.textContent = msg; el.className = 'form-note ' + (cls || ''); };
+
+  // Ürün grupları (sektöre göre) — üyelikte ilgilenilenler seçilir
+  (async () => {
+    const [s, m] = await Promise.all([sb.from('sectors').select('*').order('name'), sb.from('materials').select('*').order('name')]);
+    const box = $('#interest-box');
+    if (s.error || m.error || !(m.data || []).length) { box.innerHTML = '<span class="hint">—</span>'; return; }
+    box.innerHTML = s.data.map(sec => {
+      const items = m.data.filter(x => x.sector_id === sec.id);
+      if (!items.length) return '';
+      return '<div class="isec"><b>' + H.esc(sec.name) + '</b><div class="ilist">' +
+        items.map(x => '<label class="check"><input type="checkbox" name="interest" value="' + x.id + '" data-name="' + H.esc(x.name) + '"> <span>' + H.esc(x.name) + '</span></label>').join('') +
+        '</div></div>';
+    }).join('');
+  })();
+
+  loginForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const note = $('#login-note'), f = new FormData(loginForm);
+    if (!f.get('email') || !f.get('password')) return say(note, 'E-posta ve şifre gerekli.', 'err');
+    say(note, 'Giriş yapılıyor...');
+    const { error } = await sb.auth.signInWithPassword({ email: f.get('email').trim(), password: f.get('password') });
+    if (error) {
+      const m = /confirm/i.test(error.message) ? 'E-postanızı henüz doğrulamadınız. Gelen kutunuzu kontrol edin.' : 'E-posta veya şifre hatalı.';
+      return say(note, m, 'err');
+    }
+    const p = await H.getProfile();
+    go(p ? p.role : 'buyer');
+  });
+
+  signupForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const note = $('#signup-note'), f = new FormData(signupForm);
+    if (!f.get('full_name') || !f.get('phone') || !f.get('email')) return say(note, 'Ad soyad, telefon ve e-posta zorunludur.', 'err');
+    if ((f.get('password') || '').length < 8) return say(note, 'Şifre en az 8 karakter olmalı.', 'err');
+    if (!f.get('kvkk')) return say(note, 'Devam etmek için kişisel veri onayını işaretleyin.', 'err');
+    const picked = [...signupForm.querySelectorAll('input[name=interest]:checked')];
+    if (!picked.length) return say(note, t('Lütfen ilgilendiğiniz en az bir ürün grubunu seçin.'), 'err');
+    const btn = signupForm.querySelector('button[type=submit]'); btn.disabled = true;
+    say(note, 'Kayıt yapılıyor...');
+    const { data, error } = await sb.auth.signUp({
+      email: f.get('email').trim(), password: f.get('password'),
+      options: {
+        emailRedirectTo: location.origin + location.pathname.replace(/[^/]*$/, '') + 'giris.html',
+        data: {
+          role: f.get('role'), full_name: f.get('full_name').trim(), company: (f.get('company') || '').trim(),
+          phone: f.get('phone').trim(), city: (f.get('city') || '').trim(), interests: picked.map(x => x.dataset.name).join(', '), interest_ids: picked.map(x => Number(x.value)),
+          marketing_consent: !!f.get('marketing')
+        }
+      }
+    });
+    btn.disabled = false;
+    if (error) return say(note, /registered|already/i.test(error.message) ? 'Bu e-posta ile zaten üyelik var. Giriş yapın.' : t('Kayıt yapılamadı: {m}', { m: error.message }), 'err');
+    if (data.session) return go(f.get('role'));
+    signupForm.reset();
+    say(note, 'Kaydınız alındı. E-posta adresinize bir doğrulama bağlantısı gönderdik. Bağlantıya tıkladıktan sonra giriş yapabilirsiniz.', 'ok');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Haberler | Hammadde360</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/i18n-ru.js"></script>
+  <script src="js/i18n.js"></script>
+</head>
+<body>
+<div id="site-top"></div>
+<main class="section">
+  <div class="container">
+    <h2>Sektörden Haberler</h2>
+    <p class="sub">Plastik sektöründen güncel haberler</p>
+    <div id="news" class="newslist"><p class="sub">Yükleniyor...</p></div>
+    <p class="hint">Haberler otomatik taranır ve kısaca özetlenir. Ayrıntı ve doğruluk için lütfen kaynağı kontrol edin.</p>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/support.js"></script>
+<script>
+(async () => {
+  const { sb, esc, dateTR } = H;
+  await H.init();
+  const box = document.getElementById('news');
+  const { data, error } = await sb.from('news').select('*').order('created_at', { ascending: false }).limit(60);
+  if (error) { box.innerHTML = '<p class="form-note err">' + t('Haberler yüklenemedi.') + '</p>'; return; }
+  if (!data.length) { box.innerHTML = '<p class="sub">' + t('Henüz haber yok.') + '</p>'; return; }
+  box.innerHTML = data.map(n =>
+    '<article class="card newsitem">' + (n.category ? '<span class="badge">' + esc(n.category) + '</span> ' : '') + (n.lang && n.lang !== 'tr' ? '<span class="badge">' + esc(n.lang.toUpperCase()) + '</span>' : '') +
+    '<h3>' + esc(n.title) + '</h3><p>' + esc(n.summary) + '</p>' +
+    '<p class="meta">' + t('Kaynak:') + ' <a href="' + esc(n.source_url) + '" target="_blank" rel="nofollow noopener">' + esc(n.source_name) + '</a>' +
+    (n.source_date ? ' · ' + dateTR(n.source_date) : '') + (n.source_title ? '<br><i>“' + esc(n.source_title) + '”</i>' : '') + '</p></article>').join('');
+})();
+</script>
+</body>
+</html>

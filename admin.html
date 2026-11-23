@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Yönetim | Hammadde360</title>
+  <link rel="icon" type="image/svg+xml" href="img/logo.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="site-top"></div>
+<main class="section alt">
+  <div class="container">
+    <h2>Yönetim Paneli</h2>
+    <div class="tabs" id="tabs"></div>
+    <p class="form-note" id="msg" role="status"></p>
+    <div id="view"></div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/support.js"></script>
+<script>
+(async () => {
+  const { sb, esc, money, dateTR } = H;
+  const me = await H.init({ require: ['admin'] });
+  if (!me) return;
+
+  const $ = s => document.querySelector(s);
+  const view = $('#view'), tabsEl = $('#tabs'), msg = $('#msg');
+  const say = (m, c) => { msg.textContent = m || ''; msg.className = 'form-note ' + (c || ''); };
+  let listings = [], categories = [], members = [], tab = 'agents';
+  const mf = { role: '', consent: '', q: '' };
+  let prospects = [], mailLog = [];
+  let requests = [], sectorsL = [], materialsL = [], brandsL = [], productsL = [];
+
+  const TABS = [['agents', 'Ajan Ofisi'], ['pending', 'Bekleyen'], ['published', 'Yayında'], ['rejected', 'Reddedilen'], ['members', 'Üyeler'], ['catalog', 'Katalog'], ['marketing', 'Pazarlama'], ['news', 'Haberler']];
+  const num = v => (v === '' || v === null || v === undefined) ? null : Number(v);
+  const listOf = (sp, m) => Math.round(sp * (1 + m / 100) * 100) / 100;
+
+  async function load() {
+    const [l, c, m] = await Promise.all([
+      sb.from('listings').select('*, seller:profiles(full_name,company,phone,email,city), category:categories(name)').order('created_at', { ascending: false }),
+      sb.from('categories').select('*').order('name'),
+      sb.from('profiles').select('*').order('created_at', { ascending: false })
+    ]);
+    if (l.error || c.error || m.error) { say('Veriler yüklenemedi: ' + (l.error || c.error || m.error).message, 'err'); return; }
+    listings = l.data; categories = c.data; members = m.data;
+    await loadCatalog();
+    await loadMarketing();
+    await loadAgents();
+    await loadNews();
+    render();
+  }
+
+  function renderTabs() {
+    tabsEl.innerHTML = TABS.map(([k, n]) => {
+      const cnt = k === 'members' ? members.length : k === 'news' ? newsL.length : k === 'marketing' ? prospects.filter(x => ['unreachable', 'bounced'].includes(x.status)).length : k === 'catalog' ? requests.filter(r => ['pending', 'needs_confirmation', 'confirmed_different'].includes(r.status)).length : listings.filter(x => x.status === k).length;
+      return '<button class="tab' + (k === tab ? ' active' : '') + '" data-tab="' + k + '" type="button">' + n + (k === 'agents' ? '' : ' (' + cnt + ')') + '</button>';
+    }).join('');
+  }
+
+  function catOptions(sel) {
+    return '<option value="">— Kategori seçin —</option>' +
+      categories.map(c => '<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') +
+      '<option value="__new">+ Yeni kategori oluştur…</option>';
+  }
+
+  function card(l) {
+    const s = l.seller || {};
+    const actions = l.status === 'pending'
+      ? '<button class="btn btn-sm" data-act="publish" type="button">Yayınla</button><button class="btn btn-sm btn-dark" data-act="save" type="button">Kaydet</button><button class="btn btn-sm btn-danger" data-act="reject" type="button">Reddet</button>'
+      : l.status === 'published'
+        ? '<button class="btn btn-sm btn-dark" data-act="save" type="button">Kaydet</button><button class="btn btn-sm btn-danger" data-act="unpublish" type="button">Yayından kaldır</button>'
+        : '<button class="btn btn-sm" data-act="unpublish" type="button">Beklemeye al</button>';
+    return '<article class="acard" data-id="' + l.id + '">' +
+      '<header><h3>#' + l.id + ' ' + esc(l.title) + '</h3><span class="meta">' + dateTR(l.created_at) + '</span></header>' +
+      '<p class="meta"><b>Satıcı:</b> ' + esc(s.full_name) + (s.company ? ' · ' + esc(s.company) : '') + ' · ' + esc(s.phone) + ' · ' + esc(s.email) + (s.city ? ' · ' + esc(s.city) : '') + '</p>' +
+      '<p class="meta"><b>Ürün:</b> ' + esc(l.product_type) + ' · ' + esc(l.quantity) + ' ' + esc(l.unit) + (l.city ? ' · ' + esc(l.city) : '') + (l.tds_path ? ' · <a href="#" data-tds="' + esc(l.tds_path) + '">TDS (PDF)</a>' : '') + '</p>' +
+      '<p class="meta"><b>Palet:</b> 1 palet = ' + esc(l.pallet_qty) + ' ' + esc(l.unit) + ((l.price_tiers || []).length ? ' · <b>Kademeler (satıcı → liste):</b> ' + l.price_tiers.map(t => t.min_pallets + '+ palet: $' + t.price + ' → $' + (Math.round(t.price * (1 + Number(l.margin_pct) / 100) * 100) / 100)).join(' · ') : ' · kademe yok') + '</p>' +
+      (l.description ? '<p class="desc">' + esc(l.description) + '</p>' : '') +
+      '<div class="agrid">' +
+      '<label>Satıcı fiyatı (USD / ' + esc(l.unit) + ', KDV hariç)<input disabled data-f="sp" value="' + l.seller_price + '"></label>' +
+      '<label>Marj (%)<input type="number" step="0.1" min="0" data-f="m" value="' + l.margin_pct + '"></label>' +
+      '<label>Liste fiyatı<input disabled data-f="lp" value=""></label>' +
+      '<label>Kampanya fiyatı (boş = yok)<input type="number" step="0.01" min="0" data-f="cp" value="' + (l.campaign_price ?? '') + '"></label>' +
+      '<label>KDV oranı<select data-f="vat">' + [20, 10, 1, 0].map(v => '<option value="' + v + '"' + (Number(l.vat_pct) === v ? ' selected' : '') + '>%' + v + '</option>').join('') + '</select></label>' +
+      '<label>Kategori<select data-f="cat">' + catOptions(l.category_id) + '</select></label>' +
+      '<label class="newcat" hidden>Yeni kategori adı<input data-f="newcat" placeholder="Örn: Plastik / PP"></label>' +
+      '</div><p class="hint" data-hint></p><div class="actions">' + actions + '</div></article>';
+  }
+
+  function updatePreview(el) {
+    const sp = Number(el.querySelector('[data-f=sp]').value), m = Number(el.querySelector('[data-f=m]').value) || 0;
+    const cp = num(el.querySelector('[data-f=cp]').value), lp = listOf(sp, m);
+    el.querySelector('[data-f=lp]').value = money(lp);
+    const h = el.querySelector('[data-hint]');
+    let t = 'Liste fiyatı ' + money(lp) + ' · kampanya en düşük ' + money(sp) + ' olabilir (satıcı fiyatı).';
+    let bad = false;
+    if (cp !== null) {
+      if (cp < sp) { t = 'Kampanya fiyatı satıcı fiyatının (' + money(sp) + ') altında olamaz.'; bad = true; }
+      else t += ' Kampanyada kalan kâr: ' + money(cp - sp) + ' / birim.';
+    }
+    const d = H.cfg.CASH_DISCOUNT_PCT || 0;
+    const eff = (cp !== null && cp >= sp) ? cp : lp, cash = Math.round(eff * (1 - d / 100) * 100) / 100;
+    t += ' Nakit (%' + d + ' iskonto) fiyat: ' + money(cash) + (cash < sp ? ' — satıcı fiyatının ALTINDA!' : ' · kâr ' + money(cash - sp) + ' / birim');
+    if (cash < sp) bad = true;
+    h.textContent = t; h.classList.toggle('err', bad);
+  }
+
+  function renderListings() {
+    const rows = listings.filter(l => l.status === tab);
+    view.innerHTML = rows.length ? rows.map(card).join('') : '<p class="sub">Bu listede kayıt yok.</p>';
+    view.querySelectorAll('.acard').forEach(updatePreview);
+  }
+
+  function filteredMembers() {
+    const t = mf.q.trim().toLocaleLowerCase('tr');
+    return members.filter(p => (!mf.role || p.role === mf.role) &&
+      (mf.consent === '' || String(p.marketing_consent) === mf.consent) &&
+      (!t || [p.full_name, p.company, p.email, p.phone, p.city, p.interests].join(' ').toLocaleLowerCase('tr').includes(t)));
+  }
+
+  function renderMembers() {
+    const rows = filteredMembers();
+    const ROLE = { buyer: 'Alıcı', seller: 'Satıcı', admin: 'Yönetici' };
+    view.innerHTML =
+      '<div class="filters"><input id="mq" type="search" placeholder="Ara: ad, firma, e-posta..." value="' + esc(mf.q) + '">' +
+      '<select id="mrole"><option value="">Tüm türler</option><option value="buyer">Alıcı</option><option value="seller">Satıcı</option></select>' +
+      '<select id="mcons"><option value="">Mail izni: hepsi</option><option value="true">Mail izni verenler</option><option value="false">İzin vermeyenler</option></select>' +
+      '<button class="btn btn-sm" id="csv" type="button">CSV indir (' + rows.length + ')</button></div>' +
+      '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Tür</th><th>Ad Soyad</th><th>Firma</th><th>E-posta</th><th>Telefon</th><th>Şehir</th><th>İlgi</th><th>Mail izni</th></tr></thead><tbody>' +
+      rows.map(p => '<tr><td>' + dateTR(p.created_at) + '</td><td>' + (ROLE[p.role] || p.role) + '</td><td>' + esc(p.full_name) + '</td><td>' + esc(p.company) +
+        '</td><td>' + esc(p.email) + '</td><td>' + esc(p.phone) + '</td><td>' + esc(p.city) + '</td><td>' + esc(p.interests) + '</td><td>' + (p.marketing_consent ? '✓' : '—') + '</td></tr>').join('') +
+      '</tbody></table></div>';
+    $('#mrole').value = mf.role; $('#mcons').value = mf.consent;
+  }
+
+  function render() {
+    renderTabs();
+    tab === 'agents' ? renderAgents() : tab === 'news' ? renderNews() : tab === 'members' ? renderMembers() : tab === 'catalog' ? renderCatalog() : tab === 'marketing' ? renderMarketing() : renderListings();
+  }
+
+  function exportCSV() {
+    const rows = filteredMembers();
+    const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const head = ['E-posta', 'Ad Soyad', 'Firma', 'Telefon', 'Şehir', 'Tür', 'İlgi alanı', 'Mail izni', 'Kayıt tarihi'];
+    const lines = [head.map(cell).join(',')].concat(rows.map(p =>
+      [p.email, p.full_name, p.company, p.phone, p.city, p.role, p.interests, p.marketing_consent ? 'evet' : 'hayır', dateTR(p.created_at)].map(cell).join(',')));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'uyeler-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  async function resolveCategory(el) {
+    const v = el.querySelector('[data-f=cat]').value;
+    if (v !== '__new') return v ? Number(v) : null;
+    const name = el.querySelector('[data-f=newcat]').value.trim();
+    if (!name) throw new Error('Yeni kategori adını yazın.');
+    let { data, error } = await sb.from('categories').insert({ name }).select().single();
+    if (error) {
+      const ex = await sb.from('categories').select('*').eq('name', name).maybeSingle();
+      if (!ex.data) throw new Error('Kategori oluşturulamadı: ' + error.message);
+      data = ex.data;
+    } else categories.push(data);
+    return data.id;
+  }
+
+  async function act(el, kind) {
+    const id = Number(el.dataset.id), l = listings.find(x => x.id === id);
+    const m = num(el.querySelector('[data-f=m]').value) ?? 6, cp = num(el.querySelector('[data-f=cp]').value);
+    if (cp !== null && cp < l.seller_price) return say('Kampanya fiyatı satıcı fiyatının altında olamaz.', 'err');
+    if (kind === 'reject' && !confirm('Bu ilan reddedilsin mi?')) return;
+    say('Kaydediliyor...');
+    try {
+      const category_id = await resolveCategory(el);
+      const patch = { margin_pct: m, campaign_price: cp, category_id, vat_pct: Number(el.querySelector('[data-f=vat]').value) };
+      if (kind === 'publish') {
+        if (!category_id) return say('Yayınlamadan önce bir kategori seçin veya oluşturun.', 'err');
+        patch.status = 'published';
+      }
+      if (kind === 'reject') patch.status = 'rejected';
+      if (kind === 'unpublish') patch.status = 'pending';
+      const { error } = await sb.from('listings').update(patch).eq('id', id);
+      if (error) throw new Error(error.message);
+      say(kind === 'publish' ? 'İlan yayınlandı.' : kind === 'reject' ? 'İlan reddedildi.' : kind === 'unpublish' ? 'İlan beklemeye alındı.' : 'Kaydedildi.', 'ok');
+      await load();
+    } catch (e) { say(e.message, 'err'); }
+  }
+
+  tabsEl.addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; say(''); render(); } });
+  view.addEventListener('input', e => {
+    const el = e.target.closest('.acard'); if (el) updatePreview(el);
+    if (e.target.id === 'mq') { mf.q = e.target.value; renderMembers(); const i = $('#mq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+  });
+  view.addEventListener('change', e => {
+    const el = e.target.closest('.acard');
+    if (el && e.target.dataset.f === 'cat') el.querySelector('.newcat').hidden = e.target.value !== '__new';
+    if (e.target.id === 'mrole') { mf.role = e.target.value; renderMembers(); }
+    if (e.target.id === 'mcons') { mf.consent = e.target.value; renderMembers(); }
+  });
+  // ---------- HABERLER ----------
+  async function loadNews() {
+    const { data } = await sb.from('news').select('*').order('created_at', { ascending: false }).limit(100);
+    newsL = data || [];
+  }
+  function renderNews() {
+    view.innerHTML = '<h3>Yayınlanan haberler (' + newsL.length + ')</h3><p class="hint">Haber ajanı yayınlar; uygunsuz gördüğünü <b>Gizle</b> ile sitede görünmez yapabilirsin.</p>' +
+      (newsL.length ? '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Haber</th><th>Kaynak</th><th>Durum</th><th></th></tr></thead><tbody>' + newsL.map(n =>
+        '<tr data-nid="' + n.id + '"><td>' + dateTR(n.created_at) + '</td><td><b>' + esc(n.title) + '</b><br><small>' + esc(n.summary) + '</small></td><td><a href="' + esc(n.source_url) + '" target="_blank" rel="noopener">' + esc(n.source_name) + '</a></td><td>' +
+        (n.visible ? 'Yayında' : 'Gizli') + '</td><td><button class="btn btn-sm ' + (n.visible ? 'btn-danger' : '') + '" data-nw="' + (n.visible ? 'hide' : 'show') + '" type="button">' + (n.visible ? 'Gizle' : 'Göster') + '</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="sub">Henüz haber yok.</p>');
+  }
+  async function newsAction(tr, kind) {
+    const { error } = await sb.from('news').update({ visible: kind === 'show' }).eq('id', Number(tr.dataset.nid));
+    if (error) return say(error.message, 'err');
+    await loadNews(); render();
+  }
+
+  // ---------- AJAN OFİSİ ----------
+  const AGENTS = [
+    ['kur_ajani', 'Kur Ajanı', 'TCMB kurunu 10 dakikada bir kontrol eder; eksik/hatalı kaydı düzeltir; her gece 00:00\'dan sonra günün geçişini doğrular ve bildirir.', 'Her 10 dk · gece 00:00 sonrası özel kontrol'],
+    ['katalog_ajani', 'Katalog Ajanı', 'Satıcıların "listede yok" ürün taleplerini işler: kurallara uyuyor ve benzeri yoksa kataloğa ekler, benzer varsa satıcıya sorar, işlem bitince mail atar.', 'Her 2 dk · talep başına 30 dk içinde dönüş'],
+    ['pazarlama_seller', 'Pazarlama · Satıcı', 'Aday satıcı firmalara davet maili: günde 10 firma, 30 dakikaya yayılır, 15 günde bir tekrar; üye olan listeden çıkar; hatalı mailde alternatif adres arar.', 'Her gün 10:00-10:30'],
+    ['pazarlama_buyer', 'Pazarlama · Alıcı', 'Aday alıcı firmalara davet maili; satıcı ajanıyla aynı kurallar.', 'Her gün 11:00-11:30'],
+    ['satis_ajani', 'Satış Ajanı', 'Mail izni veren üyelere sadece seçtikleri ürün gruplarındaki yeni ilan/fiyat/kampanya gelişmelerini bildirir (üye başına haftada en fazla 1).', 'Her gün 12:00-12:30'],
+    ['kesif_ajani', 'Keşif Ajanı', 'Web aramasıyla Türkiye\'deki yeni aday firmaları bulur; e-postayı firmanın kendi sitesinden doğrular; ulaşamadığını bildirir.', 'Her gün 09:00-09:30'],
+    ['haber_ajani', 'Haber Ajanı', 'Yayıncıların RSS akışından plastik HAMMADDE haberlerini alır (ücretsiz), kaynak adı, bağlantısı ve orijinal başlığıyla sitede Haberler sayfasında yayınlar; makine/fuar haberlerini eler.', 'Her 2 saatte bir (07:00-23:00)'],
+    ['tds_ajani', 'TDS Ajanı', 'Kataloğa eklenen ürünlerin TDS (teknik veri sayfası) PDF bağlantısını üreticinin sitesinden bulur, doğrular ve ürüne bağlar. Müşteri uğraşmaz; marka sitesi tanımlı olmalıdır.', 'Her 15 dk (08:00-22:00), ürün başına 14 günde bir'],
+    ['raporcu_ajani', 'Raporcu', 'Günlük özet raporu (18:00) gönderir; sessiz kalan ajanı yakalar ve uyarır; eski kayıtları temizler.', 'Her 5 dk · özet 18:00']
+  ];
+  let newsL = [];
+  let hbs = {}, evs = [], mailToday = [], agSel = 'overview';
+
+  async function loadAgents() {
+    const gunBasi = new Date(); gunBasi.setHours(0, 0, 0, 0);
+    const [h, e, m] = await Promise.all([
+      sb.from('agent_heartbeat').select('*'),
+      sb.from('agent_events').select('*').order('created_at', { ascending: false }).limit(400),
+      sb.from('mail_log').select('kind,ok,sent_at').gte('sent_at', gunBasi.toISOString()).limit(2000)
+    ]);
+    hbs = {}; (h.data || []).forEach(x => { hbs[x.agent] = x; });
+    evs = e.data || []; mailToday = m.data || [];
+  }
+
+  function agentStatus(key) {
+    const h = hbs[key];
+    if (!h) return ['grey', 'Henüz çalışmadı'];
+    const age = (Date.now() - new Date(h.last_run)) / 1000;
+    if (age > (h.interval_sn || 600) * 3 + 120) return ['red', 'Sessiz (' + Math.round(age / 60) + ' dk)'];
+    if (h.status === 'error') return ['red', 'Hata'];
+    if (h.status === 'warn') return ['yellow', 'Uyarı'];
+    return ['green', 'Çalışıyor'];
+  }
+  const ago = d => { const s = (Date.now() - new Date(d)) / 1000; return s < 90 ? 'az önce' : s < 3600 ? Math.round(s / 60) + ' dk önce' : s < 86400 ? Math.round(s / 3600) + ' sa önce' : Math.round(s / 86400) + ' gün önce'; };
+
+  function agentNumbers(key) {
+    const pr = k => prospects.filter(x => x.kind === k);
+    const sentToday = kind => mailToday.filter(x => x.kind === kind && x.ok).length;
+    if (key === 'katalog_ajani') {
+      const c = st => requests.filter(r => r.status === st).length;
+      return [['Bekleyen talep', c('pending')], ['Satıcı yanıtı bekleyen', c('needs_confirmation')], ['Tamamlanan', c('created')], ['Reddedilen', c('rejected')]];
+    }
+    if (key === 'pazarlama_seller' || key === 'pazarlama_buyer') {
+      const k = key === 'pazarlama_seller' ? 'seller' : 'buyer', l = pr(k);
+      return [['Aday firma', l.length], ['Aktif', l.filter(x => x.status === 'active').length], ['Bugün giden mail', sentToday(key)], ['Davet edilen', l.filter(x => x.send_count > 0).length],
+        ['Üye olan', l.filter(x => x.status === 'registered').length], ['Listeden çıkan', l.filter(x => x.status === 'unsubscribed').length], ['Ulaşılamayan', l.filter(x => ['unreachable', 'bounced'].includes(x.status)).length]];
+    }
+    if (key === 'satis_ajani') {
+      const ok = members.filter(x => x.marketing_consent);
+      return [['Mail izni veren üye', ok.length], ['İlgi alanı seçmiş', ok.filter(x => (x.interest_ids || []).length).length], ['Bugün giden bülten', sentToday('satis_ajani')]];
+    }
+    if (key === 'kesif_ajani') {
+      return [['Toplam aday', prospects.length], ['Kurumsal e-postası bulunan', prospects.filter(x => x.email).length], ['E-postası bulunamayan', prospects.filter(x => x.status === 'unreachable' && !x.email).length]];
+    }
+    return [];
+  }
+
+  const LV = { ok: '✔', info: '•', warn: '⚠', error: '✖' };
+
+  function renderAgents() {
+    const chips = '<div class="chips agchips"><button type="button" class="tab' + (agSel === 'overview' ? ' active' : '') + '" data-ag="overview">Genel bakış</button>' +
+      AGENTS.map(a => { const st = agentStatus(a[0]); return '<button type="button" class="tab' + (agSel === a[0] ? ' active' : '') + '" data-ag="' + a[0] + '"><span class="dot ' + st[0] + '"></span> ' + a[1] + '</button>'; }).join('') + '</div>';
+    if (agSel === 'overview') {
+      const aday = prospects.length, davet = prospects.filter(x => x.send_count > 0).length, uyeOlan = prospects.filter(x => x.status === 'registered').length;
+      const saticiUye = members.filter(x => x.role === 'seller').length, aliciUye = members.filter(x => x.role === 'buyer').length;
+      const yayinda = listings.filter(x => x.status === 'published').length, bekleyen = listings.filter(x => x.status === 'pending').length;
+      const sorun = AGENTS.filter(a => ['red', 'yellow'].includes(agentStatus(a[0])[0])).length;
+      view.innerHTML = chips +
+        '<div class="agrid4">' + AGENTS.map(a => { const st = agentStatus(a[0]), h = hbs[a[0]]; return '<div class="card agcard" data-ag="' + a[0] + '"><h3><span class="dot ' + st[0] + '"></span> ' + a[1] + '</h3><p class="meta"><b>' + st[1] + '</b>' +
+          (h ? ' · son: ' + ago(h.last_run) : '') + '</p><small>' + esc(h ? h.summary : a[3]) + '</small></div>'; }).join('') + '</div>' +
+        '<h3 style="margin-top:24px">Müşteri hunisi</h3><div class="tablewrap"><table class="table"><tbody>' +
+        '<tr><td>Aday firma (bulunan)</td><td><b>' + aday + '</b></td></tr><tr><td>Davet edilen</td><td><b>' + davet + '</b></td></tr><tr><td>Siteye üye olan aday</td><td><b>' + uyeOlan + '</b></td></tr>' +
+        '<tr><td>Üye: satıcı / alıcı</td><td><b>' + saticiUye + ' / ' + aliciUye + '</b></td></tr><tr><td>İlan: yayında / bekleyen</td><td><b>' + yayinda + ' / ' + bekleyen + '</b></td></tr>' +
+        '<tr><td>Bugün giden mail</td><td><b>' + mailToday.filter(x => x.ok).length + '</b></td></tr><tr><td>Dikkat isteyen ajan</td><td><b>' + sorun + '</b></td></tr></tbody></table></div>' +
+        '<h3 style="margin-top:24px">Son olaylar (tüm ajanlar)</h3>' + evTable(evs.slice(0, 25), true) +
+        '<p class="hint">Bu sayfa 30 saniyede bir kendini yeniler. Ajanlar sunucuda çalışmaya başlayana kadar "Henüz çalışmadı" görünür.</p>';
+      return;
+    }
+    const a = AGENTS.find(x => x[0] === agSel), st = agentStatus(agSel), h = hbs[agSel];
+    const nums = agentNumbers(agSel);
+    view.innerHTML = chips + '<div class="acard"><h3><span class="dot ' + st[0] + '"></span> ' + a[1] + ' · ' + st[1] + '</h3><p class="desc">' + esc(a[2]) + '</p><p class="meta"><b>Çalışma düzeni:</b> ' + esc(a[3]) + '</p>' +
+      '<p class="meta"><b>Son çalışma:</b> ' + (h ? new Date(h.last_run).toLocaleString('tr-TR') + ' (' + ago(h.last_run) + ') · bugün ' + (h.runs_today || 0) + ' tur' : '—') + '</p>' +
+      (nums.length ? '<div class="agrid4">' + nums.map(n => '<div class="card"><small>' + n[0] + '</small><h3>' + n[1] + '</h3></div>').join('') + '</div>' : '') + '</div>' +
+      '<h3 style="margin-top:20px">Yaptığı işler (son 60)</h3>' + evTable(evs.filter(e => e.agent === agSel).slice(0, 60), false);
+  }
+
+  function evTable(rows, withAgent) {
+    if (!rows.length) return '<p class="sub">Henüz kayıt yok.</p>';
+    return '<div class="tablewrap"><table class="table"><tbody>' + rows.map(e =>
+      '<tr class="ev ' + e.level + '"><td>' + new Date(e.created_at).toLocaleString('tr-TR') + '</td>' + (withAgent ? '<td>' + esc((AGENTS.find(a => a[0] === e.agent) || [0, e.agent])[1]) + '</td>' : '') +
+      '<td>' + (LV[e.level] || '•') + ' ' + esc(e.message) + '</td></tr>').join('') + '</tbody></table></div>';
+  }
+
+  setInterval(async () => { if (tab === 'agents') { try { await loadAgents(); render(); } catch (e) {} } }, 30000);
+
+  // ---------- PAZARLAMA ----------
+  const FREEMAIL = /@(gmail|googlemail|hotmail|outlook|live|yahoo|yandex|icloud|mynet|msn|protonmail)\./i;
+  const PS = { active: 'Aktif', registered: 'Üye oldu', unsubscribed: 'Listeden çıktı', bounced: 'Mail hatalı', unreachable: 'Ulaşılamadı', paused: 'Durduruldu' };
+  const KIND = { seller: 'Satıcı adayı', buyer: 'Alıcı adayı' };
+
+  async function loadMarketing() {
+    const [p, l] = await Promise.all([
+      sb.from('prospects').select('*').order('created_at', { ascending: false }).limit(1000),
+      sb.from('mail_log').select('*').order('sent_at', { ascending: false }).limit(15)
+    ]);
+    prospects = p.data || []; mailLog = l.data || [];
+  }
+
+  function renderMarketing() {
+    const cnt = (k, st) => prospects.filter(x => x.kind === k && (!st || x.status === st)).length;
+    const sorun = prospects.filter(x => ['unreachable', 'bounced'].includes(x.status));
+    const sumRow = k => '<tr><td><b>' + KIND[k] + '</b></td><td>' + cnt(k) + '</td><td>' + cnt(k, 'active') + '</td><td>' + cnt(k, 'registered') + '</td><td>' + cnt(k, 'unsubscribed') + '</td><td>' + (cnt(k, 'bounced') + cnt(k, 'unreachable')) + '</td></tr>';
+    view.innerHTML =
+      '<h3>Özet</h3><div class="tablewrap"><table class="table"><thead><tr><th></th><th>Toplam</th><th>Aktif</th><th>Üye oldu</th><th>Listeden çıktı</th><th>Sorunlu</th></tr></thead><tbody>' + sumRow('seller') + sumRow('buyer') + '</tbody></table></div>' +
+      '<p class="hint">Ajanlar: satıcı adaylarına her gün 10:00, alıcı adaylarına 11:00 (10 firma, 30 dk, 15 günde bir tekrar). Gerçek gönderim sunucuda <b>PAZARLAMA_GONDERIM=1</b> ile açılır.</p>' +
+      '<h3 style="margin-top:24px">Ulaşılamayan / mail hatalı firmalar (' + sorun.length + ')</h3>' +
+      (sorun.length ? '<div class="tablewrap"><table class="table"><thead><tr><th>Firma</th><th>Mail</th><th>Web</th><th>Durum</th><th>Not</th><th></th></tr></thead><tbody>' + sorun.map(x =>
+        '<tr data-pid="' + x.id + '"><td>' + esc(x.company) + '<br><small>' + KIND[x.kind] + '</small></td><td>' + esc(x.email) + '</td><td>' + esc(x.website) + '</td><td>' + PS[x.status] + '</td><td>' + esc(x.note) + '</td>' +
+        '<td><button class="btn btn-sm" data-pr="mail" type="button">Mail gir</button> <button class="btn btn-sm btn-dark" data-pr="pause" type="button">Bırak</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="sub">Yok.</p>') +
+      '<h3 style="margin-top:24px">Firma listesi yükle (CSV)</h3>' +
+      '<form id="csvform" class="form"><p class="hint">Sütunlar: <code>tur;firma;eposta;web;sehir</code> (tur: satici veya alici). Sadece kurumsal e-postalar alınır (gmail/hotmail vb. atlanır). Aynı e-posta tekrar eklenmez.</p>' +
+      '<textarea name="csv" rows="6" placeholder="tur;firma;eposta;web;sehir&#10;satici;ÖRNEK PLASTİK A.Ş.;satis@ornekplastik.com.tr;ornekplastik.com.tr;Gebze"></textarea>' +
+      '<button class="btn" type="submit">Yükle</button></form>' +
+      '<h3 style="margin-top:24px">Son gönderilen mailler</h3>' +
+      (mailLog.length ? '<div class="tablewrap"><table class="table"><thead><tr><th>Zaman</th><th>Tür</th><th>Alıcı</th><th>Konu</th><th>Sonuç</th></tr></thead><tbody>' + mailLog.map(m =>
+        '<tr><td>' + new Date(m.sent_at).toLocaleString('tr-TR') + '</td><td>' + esc(m.kind) + '</td><td>' + esc(m.to_email) + '</td><td>' + esc(m.subject) + '</td><td>' + (m.ok ? 'gitti' : 'HATA: ' + esc(m.error)) + '</td></tr>').join('') + '</tbody></table></div>' : '<p class="sub">Henüz mail gönderilmedi.</p>');
+  }
+
+  function parseCSV(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return [];
+    const sep = lines[0].includes(';') ? ';' : ',';
+    const head = lines[0].toLocaleLowerCase('tr').split(sep).map(h => h.trim());
+    const idx = n => head.findIndex(h => n.includes(h));
+    const ci = { kind: idx(['tur', 'tür', 'kind']), company: idx(['firma', 'company']), email: idx(['eposta', 'e-posta', 'email']), web: idx(['web', 'website']), city: idx(['sehir', 'şehir', 'city']) };
+    const hasHeader = ci.company >= 0;
+    const rows = hasHeader ? lines.slice(1) : lines;
+    const get = (c, i, d) => (c[hasHeader ? ci[d] : i] || '').trim();
+    return rows.map(l => { const c = l.split(sep); return { kind: get(c, 0, 'kind'), company: get(c, 1, 'company'), email: get(c, 2, 'email').toLowerCase(), website: get(c, 3, 'web'), city: get(c, 4, 'city') }; });
+  }
+
+  view.addEventListener('submit', async e => {
+    if (e.target.id !== 'csvform') return;
+    e.preventDefault();
+    const rows = parseCSV(e.target.elements.csv.value);
+    let ok = 0, dup = 0, skip = 0;
+    say('Yükleniyor...');
+    for (const r of rows) {
+      const kind = /^(alici|alıcı|buyer)$/i.test(r.kind) ? 'buyer' : /^(satici|satıcı|seller)$/i.test(r.kind) ? 'seller' : '';
+      if (!kind || !r.company || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(r.email) || FREEMAIL.test(r.email)) { skip++; continue; }
+      const { error } = await sb.from('prospects').insert({ kind, company: r.company, email: r.email, website: r.website || null, city: r.city || null, source_url: 'CSV yükleme' });
+      if (error) { if (error.code === '23505') dup++; else skip++; } else ok++;
+    }
+    say('Eklenen: ' + ok + ' · Zaten vardı: ' + dup + ' · Atlanan (geçersiz/kurumsal olmayan): ' + skip, ok ? 'ok' : 'err');
+    await loadMarketing(); render();
+  });
+
+  async function prospectAction(tr, kind) {
+    const id = Number(tr.dataset.pid);
+    if (kind === 'mail') {
+      const m = (prompt('Bu firma için yeni kurumsal e-posta adresi:') || '').trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m) || FREEMAIL.test(m)) return say('Geçerli bir kurumsal e-posta girin.', 'err');
+      const { error } = await sb.from('prospects').update({ email: m, status: 'active', note: null }).eq('id', id);
+      if (error) return say(error.message, 'err');
+    } else {
+      const { error } = await sb.from('prospects').update({ status: 'paused', note: 'Elle bırakıldı' }).eq('id', id);
+      if (error) return say(error.message, 'err');
+    }
+    await loadMarketing(); render();
+  }
+
+  // ---------- MARKA SİTELERİ (TDS ajanı için) ----------
+  async function brandSite(tr) {
+    let v = tr.querySelector('.bw').value.trim();
+    if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+    if (v && !/^https?:\/\/[^\s]+\.[^\s]+$/i.test(v)) return say('Geçerli bir internet adresi girin.', 'err');
+    const { error } = await sb.from('brands').update({ website: v || null }).eq('id', Number(tr.dataset.bid));
+    if (error) return say(error.message, 'err');
+    say('Marka sitesi kaydedildi.', 'ok'); await loadCatalog(); render();
+  }
+  const tdsSay = bid => { const p = productsL.filter(x => x.brand_id === bid); return p.filter(x => x.tds_url).length + ' / ' + p.length; };
+
+  // ---------- KATALOG ----------
+  async function loadCatalog() {
+    const [rq, sc, mt, br, pr] = await Promise.all([
+      sb.from('catalog_requests').select('*, seller:profiles(full_name,company,email,phone)').order('created_at', { ascending: false }),
+      sb.from('sectors').select('*').order('name'), sb.from('materials').select('*').order('name'),
+      sb.from('brands').select('*').order('name'), sb.from('products').select('*').order('id')
+    ]);
+    requests = rq.data || []; sectorsL = sc.data || []; materialsL = mt.data || []; brandsL = br.data || []; productsL = pr.data || [];
+  }
+
+  const RS = { pending: 'İnceleniyor', created: 'Oluşturuldu', needs_confirmation: 'Satıcı yanıtı bekleniyor', confirmed_same: 'Satıcı: aynı ürün', confirmed_different: 'Satıcı: farklı ürün', rejected: 'Reddedildi' };
+  const nameOf = (list, id, txt) => (id && (list.find(x => x.id === id) || {}).name) || txt || '—';
+
+  function renderCatalog() {
+    const reqRows = requests.map(r => {
+      const sl = r.seller || {};
+      const talep = [nameOf(sectorsL, r.sector_id, r.sector_text), nameOf(materialsL, r.material_id, r.material_text), nameOf(brandsL, r.brand_id, r.brand_text), r.code_text].join(' / ');
+      const open = ['pending', 'needs_confirmation', 'confirmed_different'].includes(r.status);
+      return '<tr data-rid="' + r.id + '"><td>' + dateTR(r.created_at) + '</td><td>' + esc(sl.full_name) + '<br><small>' + esc(sl.email) + '</small></td><td><b>' + esc(talep) + '</b>' +
+        (r.note ? '<br><small>' + esc(r.note) + '</small>' : '') + (r.agent_note ? '<br><small>Ajan: ' + esc(r.agent_note) + '</small>' : '') +
+        '</td><td>' + (RS[r.status] || r.status) + '</td><td>' + (open ? '<button class="btn btn-sm" data-rq="create" type="button">Oluştur</button> <button class="btn btn-sm btn-danger" data-rq="reject" type="button">Reddet</button>' : '') + '</td></tr>';
+    }).join('');
+    const tree = sectorsL.map(sc => {
+      const ms = materialsL.filter(m => m.sector_id === sc.id).map(m => {
+        const n = productsL.filter(p => p.material_id === m.id).length;
+        return esc(m.name) + ' (' + n + ')';
+      }).join(', ');
+      return '<li><b>' + esc(sc.name) + '</b>: ' + (ms || '—') + '</li>';
+    }).join('');
+    view.innerHTML =
+      '<h3>Ürün talepleri</h3><div class="tablewrap">' + (requests.length ? '<table class="table"><thead><tr><th>Tarih</th><th>Satıcı</th><th>Talep (sektör / grup / marka / kod)</th><th>Durum</th><th></th></tr></thead><tbody>' + reqRows + '</tbody></table>' : '<p class="sub">Talep yok.</p>') + '</div>' +
+      '<h3 style="margin-top:28px">Katalog</h3><ul>' + (tree || '<li>Boş</li>') + '</ul><p class="hint">Marka sayısı: ' + brandsL.length + ' · Ürün kodu sayısı: ' + productsL.length + ' · TDS bulunan: ' + productsL.filter(x => x.tds_url).length + '</p>' +
+      '<h3 style="margin-top:28px">Markalar ve internet siteleri (TDS ajanı için)</h3><div class="tablewrap"><table class="table"><thead><tr><th>Marka</th><th>Üretici internet sitesi</th><th></th><th>TDS bulunan / ürün</th></tr></thead><tbody>' + (brandsL.map(b => '<tr data-bid="' + b.id + '"><td>' + esc(b.name) + '</td><td><input class="bw" value="' + esc(b.website || '') + '" placeholder="https://uretici.com"></td><td><button class="btn btn-sm" data-bw type="button">Kaydet</button></td><td>' + tdsSay(b.id) + '</td></tr>').join('') || '<tr><td colspan="4">Henüz marka yok.</td></tr>') + '</tbody></table></div>' +
+      '<h3 style="margin-top:28px">Elle ürün ekle</h3>' +
+      '<form id="addp" class="form"><div class="agrid">' +
+      '<label>Sektör<input name="sector" class="caps" list="dl-sec" autocomplete="off"></label>' +
+      '<label>Ürün grubu<input name="material" class="caps" list="dl-mat" autocomplete="off"></label>' +
+      '<label>Marka<input name="brand" class="caps" list="dl-brand" autocomplete="off"></label>' +
+      '<label>Ürün kodu<input name="code" class="caps" autocomplete="off"></label></div>' +
+      '<datalist id="dl-sec">' + sectorsL.map(x => '<option value="' + esc(x.name) + '">').join('') + '</datalist>' +
+      '<datalist id="dl-mat">' + [...new Set(materialsL.map(x => x.name))].map(n => '<option value="' + esc(n) + '">').join('') + '</datalist>' +
+      '<datalist id="dl-brand">' + brandsL.map(x => '<option value="' + esc(x.name) + '">').join('') + '</datalist>' +
+      '<button class="btn" type="submit">Ekle</button></form>';
+  }
+
+  async function ensure(table, match, row) {
+    const f = await sb.from(table).select('id').match(match).maybeSingle();
+    if (f.data) return f.data.id;
+    const ins = await sb.from(table).insert(row).select('id').single();
+    if (ins.error) throw new Error(ins.error.message);
+    return ins.data.id;
+  }
+  async function makeProduct(sectorId, sectorText, materialId, materialText, brandId, brandText, code) {
+    const sid = sectorId || await ensure('sectors', { name: sectorText }, { name: sectorText });
+    const mid = materialId || await ensure('materials', { sector_id: sid, name: materialText }, { sector_id: sid, name: materialText });
+    const bid = brandId || await ensure('brands', { name: brandText }, { name: brandText });
+    return ensure('products', { material_id: mid, brand_id: bid, code }, { material_id: mid, brand_id: bid, code });
+  }
+
+  async function requestAction(tr, kind) {
+    const r = requests.find(x => x.id === Number(tr.dataset.rid)); if (!r) return;
+    say('Kaydediliyor...');
+    try {
+      if (kind === 'reject') {
+        if (!confirm('Bu talep reddedilsin mi?')) return say('');
+        const { error } = await sb.from('catalog_requests').update({ status: 'rejected', resolved_at: new Date().toISOString() }).eq('id', r.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const pid = await makeProduct(r.sector_id, r.sector_text, r.material_id, r.material_text, r.brand_id, r.brand_text, r.code_text);
+        const { error } = await sb.from('catalog_requests').update({ status: 'created', created_product_id: pid, resolved_at: new Date().toISOString() }).eq('id', r.id);
+        if (error) throw new Error(error.message);
+      }
+      say('Tamamlandı. (Satıcıya e-posta ajan tarafından gönderilir.)', 'ok');
+      await loadCatalog(); render();
+    } catch (e) { say(e.message, 'err'); }
+  }
+
+  view.addEventListener('submit', async e => {
+    if (e.target.id !== 'addp') return;
+    e.preventDefault();
+    const f = e.target.elements, up = v => (v || '').trim().toLocaleUpperCase('tr');
+    const sec = up(f.sector.value), mat = up(f.material.value), br = up(f.brand.value), code = up(f.code.value);
+    if (!sec || !mat || !br || !code) return say('Dört alan da zorunlu.', 'err');
+    try {
+      await makeProduct(null, sec, null, mat, null, br, code);
+      say('Ürün eklendi.', 'ok'); await loadCatalog(); render();
+    } catch (err) { say(err.message, 'err'); }
+  });
+  view.addEventListener('input', e => {
+    if (e.target.classList && e.target.classList.contains('caps')) { const pos = e.target.selectionStart; e.target.value = e.target.value.toLocaleUpperCase('tr'); try { e.target.setSelectionRange(pos, pos); } catch (x) {} }
+  });
+
+  view.addEventListener('click', e => {
+    const td = e.target.closest('[data-tds]');
+    if (td) { e.preventDefault(); sb.storage.from('tds').createSignedUrl(td.dataset.tds, 600).then(r => r.data && window.open(r.data.signedUrl, '_blank')); return; }
+    const bw = e.target.closest('[data-bw]');
+    if (bw) { return brandSite(bw.closest('tr')); }
+    const nw = e.target.closest('[data-nw]'); if (nw) return newsAction(nw.closest('tr'), nw.dataset.nw);
+    const ag = e.target.closest('[data-ag]'); if (ag) { agSel = ag.dataset.ag; return render(); }
+    const rq = e.target.closest('[data-rq]'); if (rq) return requestAction(rq.closest('tr'), rq.dataset.rq);
+    const pr = e.target.closest('[data-pr]'); if (pr) return prospectAction(pr.closest('tr'), pr.dataset.pr);
+    if (e.target.id === 'csv') return exportCSV();
+    const b = e.target.closest('[data-act]'); if (b) act(b.closest('.acard'), b.dataset.act);
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
