@@ -48,7 +48,7 @@
       '<div class="test-banner" role="note">⚠ Test yayınıdır. Site yapım aşamasındadır, bilgiler kesinleşmemiştir.</div>' +
       (fx ? '<div class="fxbar">' + tt('TCMB döviz satış kuru:') + ' <b>1 USD = ' + rateFmt(fx.usd_sell) + ' ₺</b> (' + tt('{d} tarihli TCMB ilanı', { d: dateTR(fx.rate_date) }) + ')' +
         (fx.next ? ' · ' + tt('Sonraki iş günü ({d} ilanı):', { d: dateTR(fx.next.rate_date) }) + ' <b>' + rateFmt(fx.next.usd_sell) + ' ₺</b>' : '') +
-        ' · ' + tt('Fiyatlar USD cinsindendir ve KDV hariçtir (KDV oranı ilana göre ayrıca eklenir). Faturalandırma TCMB döviz satış kuru esas alınarak yapılır.') + ' <b>' + tt('Nakit ödemelerde %{n} iskonto.', { n: cfg.CASH_DISCOUNT_PCT }) + '</b></div>' : '') +
+        '<span class="fxnote"> · ' + tt('Fiyatlar USD cinsindendir ve KDV hariçtir (KDV oranı ilana göre ayrıca eklenir). Faturalandırma TCMB döviz satış kuru esas alınarak yapılır.') + ' <b>' + tt('Nakit ödemelerde %{n} iskonto.', { n: cfg.CASH_DISCOUNT_PCT }) + '</b></span></div>' : '') +
       '<header class="header"><div class="container nav">' +
       '<a href="index.html" class="logo" aria-label="Hammadde360 ana sayfa"><img src="img/logo.svg" alt="" width="52" height="52"><span class="logo-text">hammadde<span>360</span></span></a>' +
       '<button class="menu-btn" aria-label="Menüyü aç" aria-expanded="false">☰</button>' +
