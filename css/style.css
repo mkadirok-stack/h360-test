@@ -316,3 +316,43 @@ fieldset.tiers legend{font-weight:600;font-size:.92rem;padding:0 6px}
 .pfoot{margin-top:auto;padding-top:12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line)}
 .pfoot a{font-weight:700}
 .pcount{color:var(--muted);font-size:.9rem;font-weight:600}
+
+/* ===== Mobil düzenlemeler ===== */
+@media (max-width:640px){
+  html,body{overflow-x:hidden}
+  .test-banner{font-size:.78rem;padding:6px 12px;line-height:1.35}
+  .fxbar{font-size:.76rem;padding:5px 12px;line-height:1.4}
+  .fxbar .fxnote{display:none}
+  .nav{height:64px}
+  .menu{top:64px}
+  .logo img{width:40px;height:40px}
+  .logo{font-size:1.2rem;gap:8px}
+  .container{padding:0 16px}
+  .hero{padding:48px 0 40px}
+  .hero-cta .btn{flex:1 1 100%;text-align:center}
+  .stats{gap:18px 28px;margin-top:36px}
+  .section{padding:44px 0}
+  .sub{margin-bottom:28px}
+  .form{padding:18px}
+  .form .btn{justify-self:stretch;text-align:center}
+  /* filtreler: 2 sütun, aynı genişlik */
+  .filters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .filters input,.filters select{width:100%;min-width:0;flex:none}
+  .filters input[type=search],.filters input[type=text]:first-child{grid-column:1/-1}
+  .filters input[type=number]{flex:none;min-width:0}
+  /* fiyat ve bilgi alanları */
+  .price.big strong{font-size:1.7rem}
+  .facts{gap:16px 24px}
+  /* sabit butonlar içeriğin üstüne binmesin */
+  .wa-float{width:52px;height:52px;padding:0;justify-content:center;right:12px;bottom:12px}
+  .wa-float span,.wa-float .wa-txt{display:none}
+  .fxbox{left:12px;bottom:12px;max-width:calc(100vw - 88px)}
+  .fx-head{padding:7px 10px;font-size:.78rem}
+  body{padding-bottom:72px}
+  .footer{padding-bottom:84px}
+  .table,.ptable{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .calc label{max-width:none;flex:1 1 40%}
+  .tabs{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+  .tab{white-space:nowrap}
+  .card{padding:18px}
+}
