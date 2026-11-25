@@ -356,3 +356,10 @@ fieldset.tiers legend{font-weight:600;font-size:.92rem;padding:0 6px}
   .tab{white-space:nowrap}
   .card{padding:18px}
 }
+
+/* İki aşamalı doğrulama */
+.mfa-steps{text-align:left;max-width:520px;margin:0 auto 16px;padding-left:22px}
+.mfa-steps li{margin:6px 0}
+.mfa-steps code{background:var(--alt);padding:2px 6px;border-radius:6px;word-break:break-all}
+.mfa-qr{margin:0 0 16px}
+.mfa-qr img{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px}
