@@ -71,7 +71,45 @@
       (linkHref ? '<a class="btn" href="' + linkHref + '">' + esc(linkText) + '</a>' : '') + '</div>';
   }
 
-  // require: null (herkes) | 'login' | ['seller','admin'] gibi rol listesi
+  // İki aşamalı doğrulama (TOTP): yönetici sayfası için. aal2 değilse kod ister; hiç faktör yoksa kurulum gösterir.
+  async function mfaStep() {
+    const A = sb.auth.mfa;
+    const { data: lvl } = await A.getAuthenticatorAssuranceLevel();
+    if (lvl && lvl.currentLevel === 'aal2') return true;
+    const main = document.querySelector('main .container') || document.body;
+    const { data: fl } = await A.listFactors();
+    const all = (fl && fl.all) || [];
+    let factor = ((fl && fl.totp) || []).find(f => f.status === 'verified');
+    let setup = '';
+    if (!factor) {
+      for (const f of all) if (f.factor_type === 'totp' && f.status !== 'verified') await A.unenroll({ factorId: f.id });
+      const en = await A.enroll({ factorType: 'totp', friendlyName: 'Yonetici ' + Date.now() });
+      if (en.error) { gate('İki aşamalı doğrulama başlatılamadı: ' + en.error.message); return false; }
+      factor = en.data;
+      setup = '<ol class="mfa-steps"><li>Telefonunuzda bir doğrulama uygulaması açın (Google Authenticator, Microsoft Authenticator, Authy vb.).</li>' +
+        '<li>Aşağıdaki QR kodu okutun. Okutamazsanız bu anahtarı elle girin: <code>' + esc(en.data.totp.secret) + '</code></li>' +
+        '<li>Uygulamada görünen 6 haneli kodu aşağıya yazın.</li></ol>' +
+        '<p class="mfa-qr"><img src="' + esc(en.data.totp.qr_code) + '" alt="QR kod" width="180" height="180"></p>';
+    }
+    main.innerHTML = '<div class="gate mfa"><h2>İki aşamalı doğrulama</h2>' +
+      (setup || '<p>Yönetim paneli için doğrulama uygulamanızdaki 6 haneli kodu girin.</p>') +
+      '<form id="mfa-form" class="form" style="max-width:320px;margin:0 auto"><label>6 haneli kod<input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></label>' +
+      '<button class="btn" type="submit">Doğrula</button><p class="form-note" id="mfa-note" role="status"></p></form></div>';
+    return new Promise(resolve => {
+      const f = document.getElementById('mfa-form'), note = document.getElementById('mfa-note');
+      f.addEventListener('submit', async e => {
+        e.preventDefault();
+        note.className = 'form-note'; note.textContent = 'Kontrol ediliyor...';
+        const code = document.getElementById('mfa-code').value.trim();
+        const ch = await A.challenge({ factorId: factor.id });
+        const vr = ch.error ? ch : await A.verify({ factorId: factor.id, challengeId: ch.data.id, code });
+        if (vr.error) { note.className = 'form-note err'; note.textContent = 'Kod geçersiz veya süresi dolmuş. Tekrar deneyin.'; return; }
+        resolve(true);
+      });
+    });
+  }
+
+  // require: null (herkes) | 'login' | ['seller','admin'] gibi rol listesi; mfa:true -> yönetici için iki aşamalı doğrulama
   async function init(opts) {
     opts = opts || {};
     const [p, fx] = await Promise.all([getProfile(), loadFx()]);
@@ -82,6 +120,7 @@
       if (Array.isArray(opts.require) && !opts.require.includes(p.role)) {
         gate('Bu sayfaya erişim yetkiniz yok.', 'index.html', 'Ana Sayfa'); return null;
       }
+      if (opts.mfa && p.role === 'admin' && !(await mfaStep())) return null;
     }
     return p;
   }
