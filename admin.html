@@ -37,7 +37,7 @@
   let prospects = [], mailLog = [];
   let requests = [], sectorsL = [], materialsL = [], brandsL = [], productsL = [];
 
-  const TABS = [['agents', 'Ajan Ofisi'], ['pending', 'Bekleyen'], ['published', 'Yayında'], ['rejected', 'Reddedilen'], ['members', 'Üyeler'], ['catalog', 'Katalog'], ['marketing', 'Pazarlama'], ['prices', 'Fiyat Duyuruları'], ['news', 'Haberler']];
+  const TABS = [['agents', 'Ajan Ofisi'], ['pending', 'Bekleyen'], ['published', 'Yayında'], ['rejected', 'Reddedilen'], ['members', 'Üyeler'], ['catalog', 'Katalog'], ['marketing', 'Pazarlama'], ['prices', 'Fiyat Duyuruları'], ['news', 'Haberler'], ['stats', 'İstatistik']];
   const num = v => (v === '' || v === null || v === undefined) ? null : Number(v);
   const listOf = (sp, m) => Math.round(sp * (1 + m / 100) * 100) / 100;
 
@@ -60,7 +60,7 @@
   function renderTabs() {
     tabsEl.innerHTML = TABS.map(([k, n]) => {
       const cnt = k === 'members' ? members.length : k === 'news' ? newsL.length : k === 'prices' ? priceL.length : k === 'marketing' ? prospects.filter(x => ['unreachable', 'bounced'].includes(x.status)).length : k === 'catalog' ? requests.filter(r => ['pending', 'needs_confirmation', 'confirmed_different'].includes(r.status)).length : listings.filter(x => x.status === k).length;
-      return '<button class="tab' + (k === tab ? ' active' : '') + '" data-tab="' + k + '" type="button">' + n + (k === 'agents' ? '' : ' (' + cnt + ')') + '</button>';
+      return '<button class="tab' + (k === tab ? ' active' : '') + '" data-tab="' + k + '" type="button">' + n + (k === 'agents' || k === 'stats' ? '' : ' (' + cnt + ')') + '</button>';
     }).join('');
   }
 
@@ -145,7 +145,7 @@
 
   function render() {
     renderTabs();
-    tab === 'agents' ? renderAgents() : tab === 'prices' ? renderPrices() : tab === 'news' ? renderNews() : tab === 'members' ? renderMembers() : tab === 'catalog' ? renderCatalog() : tab === 'marketing' ? renderMarketing() : renderListings();
+    tab === 'agents' ? renderAgents() : tab === 'stats' ? renderStats() : tab === 'prices' ? renderPrices() : tab === 'news' ? renderNews() : tab === 'members' ? renderMembers() : tab === 'catalog' ? renderCatalog() : tab === 'marketing' ? renderMarketing() : renderListings();
   }
 
   function exportCSV() {
@@ -214,6 +214,30 @@
     const { data } = await sb.from('news').select('*').order('created_at', { ascending: false }).limit(100);
     newsL = data || [];
   }
+
+  let statDays = 30;
+  async function renderStats() {
+    view.innerHTML = '<p class="sub">Yükleniyor...</p>';
+    const { data, error } = await sb.rpc('analytics_summary', { p_days: statDays });
+    if (tab !== 'stats') return;
+    if (error) { view.innerHTML = '<p class="form-note err">İstatistik alınamadı: ' + esc(error.message) + '</p>'; return; }
+    const sum = a => (a || []).reduce((t, x) => t + Number(x.n), 0);
+    const bar = (rows, key, fmt) => {
+      const mx = Math.max(1, ...rows.map(r => Number(r.n)));
+      return rows.length ? '<table class="table"><tbody>' + rows.map(r => '<tr><td style="width:46%">' + esc(fmt ? fmt(r[key]) : r[key]) + '</td><td><div style="background:var(--alt);border-radius:6px"><div style="background:var(--accent);height:14px;border-radius:6px;width:' + Math.max(2, Math.round(Number(r.n) / mx * 100)) + '%"></div></div></td><td style="width:60px;text-align:right">' + r.n + '</td></tr>').join('') + '</tbody></table>' : '<p class="hint">Veri yok.</p>';
+    };
+    const dev = { mobile: 'Mobil', desktop: 'Masaüstü' }, mem = { true: 'Üye', false: 'Ziyaretçi' };
+    view.innerHTML = '<p class="hint">Çerezsiz sayaç: IP, çerez veya kişi kimliği tutulmaz; yalnızca gün bazlı sayfa görüntüleme sayısı vardır (yönetim sayfası sayılmaz).</p>' +
+      '<p>' + [7, 30, 90].map(d => '<button type="button" class="tab' + (d === statDays ? ' active' : '') + '" data-sd="' + d + '">Son ' + d + ' gün</button>').join(' ') + '</p>' +
+      '<h3>Toplam sayfa görüntüleme: ' + (data.total || 0) + '</h3>' +
+      '<h3>Günlük</h3>' + bar((data.daily || []).map(d => ({ day: new Date(d.day).toLocaleDateString('tr-TR'), n: d.n })), 'day') +
+      '<h3>En çok bakılan sayfalar</h3>' + bar(data.pages, 'path') +
+      '<h3>Nereden geldiler</h3>' + bar(data.refs, 'ref') +
+      '<div class="row"><div><h3>Cihaz</h3>' + bar(data.devices, 'device', v => dev[v] || v) + '</div><div><h3>Üye / ziyaretçi</h3>' + bar(data.members, 'member', v => mem[v]) + '</div></div>' +
+      '<h3>Dil</h3>' + bar(data.langs, 'lang', v => String(v).toUpperCase());
+    view.querySelectorAll('[data-sd]').forEach(b => b.addEventListener('click', () => { statDays = Number(b.dataset.sd); renderStats(); }));
+  }
+
   function renderNews() {
     view.innerHTML = '<h3>Yayınlanan haberler (' + newsL.length + ')</h3><p class="hint">Haber ajanı yayınlar; uygunsuz gördüğünü <b>Gizle</b> ile sitede görünmez yapabilirsin.</p>' +
       (newsL.length ? '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Haber</th><th>Kaynak</th><th>Durum</th><th></th></tr></thead><tbody>' + newsL.map(n =>
