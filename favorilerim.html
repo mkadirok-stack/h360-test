@@ -60,7 +60,7 @@
       '<p class="chips"><span class="chip ' + sk.cls + '">' + esc(sk.label) + '</span></p>' +
       (r.ch.length ? '<p>' + r.ch.map(c => '<span class="chg ' + c[0] + '">' + esc(c[1]) + '</span>').join('') + '</p>' : '<p class="meta">' + t('Değişiklik yok') + '</p>') +
       '<p class="meta">' + num(l.quantity) + ' ' + esc(t(l.unit)) + (l.city ? ' · ' + t('Depo teslim') + ': ' + esc(l.city) : '') + '</p>' +
-      '<div class="price"><strong>' + money(H.effPrice(l)) + '</strong><small>' + u + ' + %' + Number(l.vat_pct ?? 20) + ' ' + 'KDV</small><div class="tlp">' + tl(H.effPrice(l), fx) + u + '</div></div>' +
+      '<div class="price"><strong>' + money(H.effPrice(l)) + '</strong><small>' + u + ' + %' + Number(l.vat_pct ?? 20) + ' ' + 'KDV</small></div>' +
       '<div class="actions">' + (r.ch.length ? '<button class="btn btn-sm" data-seen="' + l.id + '">' + t('Görüldü') + '</button>' : '') +
       '<a class="btn btn-sm" href="ilan.html?id=' + l.id + '">Detay</a>' +
       '<button class="btn btn-sm" data-rm="' + l.id + '">' + t('Kaldır') + '</button></div></article>';

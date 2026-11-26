@@ -80,8 +80,8 @@
   function priceHTML(l) {
     const u = ' ' + t('/ {u} + %{v} KDV', { u: esc(t(l.unit || 'birim')), v: Number(l.vat_pct ?? 20) });
     const fx = H.fx && H.fx.usd_sell;
-    if (l.campaign_price) return '<div class="price"><s>' + money(l.list_price) + '</s> <strong class="camp">' + money(l.campaign_price) + '</strong><small>' + u + '</small><div class="tlp">' + tl(l.campaign_price, fx) + u + '</div><div class="cashnote">' + t('Nakit ödemede %{n} iskonto', { n: H.cfg.CASH_DISCOUNT_PCT }) + '</div></div>';
-    return '<div class="price"><strong>' + money(l.list_price) + '</strong><small>' + u + '</small><div class="tlp">' + tl(l.list_price, fx) + u + '</div><div class="cashnote">' + t('Nakit ödemede %{n} iskonto', { n: H.cfg.CASH_DISCOUNT_PCT }) + '</div></div>';
+    if (l.campaign_price) return '<div class="price"><s>' + money(l.list_price) + '</s> <strong class="camp">' + money(l.campaign_price) + '</strong><small>' + u + '</small><div class="cashnote">' + t('Nakit ödemede %{n} iskonto', { n: H.cfg.CASH_DISCOUNT_PCT }) + '</div></div>';
+    return '<div class="price"><strong>' + money(l.list_price) + '</strong><small>' + u + '</small><div class="cashnote">' + t('Nakit ödemede %{n} iskonto', { n: H.cfg.CASH_DISCOUNT_PCT }) + '</div></div>';
   }
 
   function render() {
