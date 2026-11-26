@@ -363,3 +363,14 @@ fieldset.tiers legend{font-weight:600;font-size:.92rem;padding:0 6px}
 .mfa-steps code{background:var(--alt);padding:2px 6px;border-radius:6px;word-break:break-all}
 .mfa-qr{margin:0 0 16px}
 .mfa-qr img{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px}
+
+/* Okunaklı yazı: kartlarda ve fiyat alanlarında küçük punto kalmasın */
+.price small,.price small *,.listing .meta,.meta,.cashnote,.hint,.facts dd small,.fx-note,.tier-row span,.form-note{font-size:1rem}
+.chip,.badge,.ptag,.chg,.pcount{font-size:.95rem;padding-top:4px;padding-bottom:4px}
+.facts dt{font-size:.95rem}
+.wa-btn,.btn-sm{font-size:1rem}
+.table,.table td,.table th{font-size:1rem}
+@media (max-width:640px){
+  .fxbar,.test-banner{font-size:.9rem}
+  .fx-head{font-size:.9rem}
+}
