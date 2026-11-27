@@ -444,9 +444,10 @@
         (bekliyor ? '<div class="cb ai typing">' + (cevrimdisi ? 'CEO çevrimdışı. Mesajınız sırada, çalışmaya başlayınca yanıtlanacak.' : 'CEO yazıyor...') + '</div>' : '');
       box.scrollTop = box.scrollHeight;
     };
+    window._ceoYenile = yenile;
     await yenile(true);
     if (ceoTimer) clearInterval(ceoTimer);
-    ceoTimer = setInterval(() => { if (tab !== 'agents' || agSel !== 'ceo_ajani') { clearInterval(ceoTimer); ceoTimer = null; return; } yenile(false); }, 4000);
+    ceoTimer = setInterval(() => { if (tab !== 'agents' || agSel !== 'ceo_ajani') { clearInterval(ceoTimer); ceoTimer = null; return; } yenile(false); }, 20000);   // yedek; asıl güncelleme canlı (Realtime) gelir
     document.getElementById('cform').onsubmit = async e => {
       e.preventDefault(); const t = document.getElementById('cin'), v = t.value.trim(); if (!v) return;
       const b = e.target.querySelector('button'); b.disabled = true;
@@ -464,6 +465,23 @@
   }
 
   setInterval(async () => { if (tab === 'agents' && !['ceo_ajani', 'board'].includes(agSel)) { try { await loadAgents(); render(); } catch (e) {} } }, 30000);
+
+  // Canlı güncelleme: office_pulse'taki "bir şey değişti" işaretini dinler (veriyi yine mevcut sorgularla çeker).
+  (function () {
+    let t = null;
+    const yaziyor = () => { const x = document.activeElement; return !!(x && /^(INPUT|TEXTAREA|SELECT)$/.test(x.tagName)); };
+    const isle = konu => {
+      if (tab !== 'agents') return;
+      if (konu === 'chat' && agSel === 'ceo_ajani') { if (window._ceoYenile) window._ceoYenile(false); return; }
+      if (konu === 'jobs' && agSel === 'board') { if (!yaziyor()) render(); return; }
+      if ((konu === 'heartbeat' || konu === 'tasks') && !['ceo_ajani', 'board'].includes(agSel)) { loadAgents().then(render).catch(() => {}); }
+    };
+    try {
+      sb.channel('admin-ofis').on('postgres_changes', { event: '*', schema: 'public', table: 'office_pulse' }, p => {
+        const k = p.new && p.new.topic; clearTimeout(t); t = setTimeout(() => isle(k), 500);
+      }).subscribe();
+    } catch (e) { /* Realtime yoksa 30 sn'lik yedek yenileme çalışır */ }
+  })();
 
   // ---------- PAZARLAMA ----------
   const FREEMAIL = /@(gmail|googlemail|hotmail|outlook|live|yahoo|yandex|icloud|mynet|msn|protonmail)\./i;
