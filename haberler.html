@@ -56,7 +56,7 @@
   if (!data.length) { box.innerHTML = '<p class="sub">' + t('Henüz haber yok.') + '</p>'; return; }
   box.innerHTML = data.map(n =>
     '<article class="card newsitem">' + (n.category ? '<span class="badge">' + esc(n.category) + '</span> ' : '') + (n.lang && n.lang !== 'tr' ? '<span class="badge">' + esc(n.lang.toUpperCase()) + '</span>' : '') +
-    '<h3>' + esc(n.title) + '</h3><p>' + esc(n.summary) + '</p>' +
+    '<h3>' + esc(n.title) + '</h3><p>' + esc(n.summary) + '</p>' + (n.lang === 'tr' && n.source_title && n.source_title !== n.title ? '<p class="hint">' + t('Başlık ve özet otomatik çevrilmiştir; ayrıntı için kaynağa bakın.') + '</p>' : '') +
     '<p class="meta">' + t('Kaynak:') + ' <a href="' + esc(n.source_url) + '" target="_blank" rel="nofollow noopener">' + esc(n.source_name) + '</a>' +
     (n.source_date ? ' · ' + dateTR(n.source_date) : '') + (n.source_title ? '<br><i>“' + esc(n.source_title) + '”</i>' : '') + '</p></article>').join('');
 })();
