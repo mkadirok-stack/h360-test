@@ -23,6 +23,7 @@
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script src="js/support.js"></script>
+<script src="js/scene.js"></script>
 <script>
 (async () => {
   const { sb, esc, money, dateTR } = H;
@@ -294,6 +295,7 @@
 
   // ---------- AJAN OFİSİ ----------
   const AGENTS = [
+    ['ceo_ajani', 'CEO', 'Ofisin başı (Claude ile çalışır): sorularınızı yanıtlar, işleri takip eder, diğer ajanlara tanımlı görevler dağıtır. Sohbet için bu sekmeye girin.', 'Mesaj geldikçe (10 sn) · sabah planı 09:00'],
     ['kur_ajani', 'Kur Ajanı', 'TCMB kurunu 10 dakikada bir kontrol eder; eksik/hatalı kaydı düzeltir; her gece 00:00\'dan sonra günün geçişini doğrular ve bildirir.', 'Her 10 dk · gece 00:00 sonrası özel kontrol'],
     ['katalog_ajani', 'Katalog Ajanı', 'Satıcıların "listede yok" ürün taleplerini işler: kurallara uyuyor ve benzeri yoksa kataloğa ekler, benzer varsa satıcıya sorar, işlem bitince mail atar.', 'Her 2 dk · talep başına 30 dk içinde dönüş'],
     ['pazarlama_seller', 'Pazarlama · Satıcı', 'Aday satıcı firmalara davet maili: günde 10 firma, 30 dakikaya yayılır, 15 günde bir tekrar; üye olan listeden çıkar; hatalı mailde alternatif adres arar.', 'Her gün 10:00-10:30'],
@@ -305,15 +307,17 @@
     ['raporcu_ajani', 'Raporcu', 'Günlük özet raporu (18:00) gönderir; sessiz kalan ajanı yakalar ve uyarır; eski kayıtları temizler.', 'Her 5 dk · özet 18:00']
   ];
   let newsL = [];
-  let hbs = {}, evs = [], mailToday = [], agSel = 'overview';
+  let hbs = {}, evs = [], mailToday = [], agSel = 'office', ovTasks = {}, ceoTimer = null;
 
   async function loadAgents() {
     const gunBasi = new Date(); gunBasi.setHours(0, 0, 0, 0);
-    const [h, e, m] = await Promise.all([
+    const [h, e, m, o] = await Promise.all([
       sb.from('agent_heartbeat').select('*'),
       sb.from('agent_events').select('*').order('created_at', { ascending: false }).limit(400),
-      sb.from('mail_log').select('kind,ok,sent_at').gte('sent_at', gunBasi.toISOString()).limit(2000)
+      sb.from('mail_log').select('kind,ok,sent_at').gte('sent_at', gunBasi.toISOString()).limit(2000),
+      sb.rpc('office_overview')
     ]);
+    ovTasks = (o && o.data && o.data.open_tasks) || {};
     hbs = {}; (h.data || []).forEach(x => { hbs[x.agent] = x; });
     evs = e.data || []; mailToday = m.data || [];
   }
@@ -354,8 +358,11 @@
   const LV = { ok: '✔', info: '•', warn: '⚠', error: '✖' };
 
   function renderAgents() {
-    const chips = '<div class="chips agchips"><button type="button" class="tab' + (agSel === 'overview' ? ' active' : '') + '" data-ag="overview">Genel bakış</button>' +
+    const chips = '<div class="chips agchips"><button type="button" class="tab' + (agSel === 'office' ? ' active' : '') + '" data-ag="office">🏢 Ofis</button><button type="button" class="tab' + (agSel === 'board' ? ' active' : '') + '" data-ag="board">📋 İş panosu</button><button type="button" class="tab' + (agSel === 'overview' ? ' active' : '') + '" data-ag="overview">Genel bakış</button>' +
       AGENTS.map(a => { const st = agentStatus(a[0]); return '<button type="button" class="tab' + (agSel === a[0] ? ' active' : '') + '" data-ag="' + a[0] + '"><span class="dot ' + st[0] + '"></span> ' + a[1] + '</button>'; }).join('') + '</div>';
+    if (agSel === 'office') return renderOffice(chips);
+    if (agSel === 'board') return renderBoard(chips);
+    if (agSel === 'ceo_ajani') return renderCeo(chips);
     if (agSel === 'overview') {
       const aday = prospects.length, davet = prospects.filter(x => x.send_count > 0).length, uyeOlan = prospects.filter(x => x.status === 'registered').length;
       const saticiUye = members.filter(x => x.role === 'seller').length, aliciUye = members.filter(x => x.role === 'buyer').length;
@@ -380,6 +387,75 @@
       '<h3 style="margin-top:20px">Yaptığı işler (son 60)</h3>' + evTable(evs.filter(e => e.agent === agSel).slice(0, 60), false);
   }
 
+  // ---- İş panosu + CEO hafızası
+  const IS_DURUM = { open: 'Açık', doing: 'Devam ediyor', blocked: 'Engelli', done: 'Bitti', dropped: 'Bırakıldı' };
+  const sahip = o => o === 'yonetici' ? 'Yönetici' : o === 'ceo_ajani' ? 'CEO' : ((AGENTS.find(a => a[0] === o) || [0, o])[1]);
+  async function renderBoard(chips) {
+    view.innerHTML = chips + '<p class="sub">Yükleniyor...</p>';
+    const [j, m] = await Promise.all([sb.rpc('office_jobs_list', { p_all: false }), sb.rpc('office_memory_list')]);
+    if (j.error) { view.innerHTML = chips + '<p class="form-note err">' + esc(j.error.message) + '</p>'; return; }
+    const isler = j.data || [], notlar = m.data || [], bugun = new Date().toISOString().slice(0, 10);
+    const opts = '<option value="yonetici">Yönetici</option><option value="ceo_ajani">CEO</option>' + AGENTS.filter(a => a[0] !== 'ceo_ajani').map(a => '<option value="' + a[0] + '">' + esc(a[1]) + '</option>').join('');
+    view.innerHTML = chips + '<div class="boardweb"><h3>Açık işler (' + isler.length + ')</h3>' +
+      '<form id="jf" class="jform"><input name="t" maxlength="200" placeholder="Yeni iş: örn. Ambalaj sektörüne açıl" required><select name="o">' + opts + '</select><input name="d" type="date"><select name="p"><option value="normal">Normal</option><option value="high">Yüksek</option><option value="low">Düşük</option></select><button class="btn" type="submit">Ekle</button></form>' +
+      '<p class="form-note err" id="jer"></p>' +
+      (isler.length ? '<div class="tablewrap"><table class="table"><thead><tr><th>İş</th><th>Sorumlu</th><th>Vade</th><th>Durum</th><th>Not</th><th></th></tr></thead><tbody>' + isler.map(i => {
+        const gec = i.due && i.due < bugun;
+        return '<tr class="' + (gec ? 'ev error' : '') + '"><td><b>' + esc(i.title) + '</b>' + (i.priority === 'high' ? ' <span class="badge">ÖNCELİKLİ</span>' : '') + (i.source === 'ceo_ajani' ? ' <small>(CEO ekledi)</small>' : '') + (i.detail ? '<br><small>' + esc(i.detail) + '</small>' : '') + '</td>' +
+          '<td>' + esc(sahip(i.owner)) + '</td><td>' + (i.due ? new Date(i.due + 'T00:00:00').toLocaleDateString('tr-TR') + (gec ? ' ⚠ geçti' : '') : '—') + '</td><td>' + esc(IS_DURUM[i.status]) + '</td><td><small>' + esc(i.last_note || '') + '</small></td>' +
+          '<td style="white-space:nowrap">' + (i.status !== 'doing' ? '<button class="btn btn-sm" data-j="' + i.id + '" data-s="doing">Başla</button> ' : '') + '<button class="btn btn-sm" data-j="' + i.id + '" data-s="done">Bitti</button> ' +
+          (i.status !== 'blocked' ? '<button class="btn btn-sm" data-j="' + i.id + '" data-s="blocked">Engelli</button> ' : '') + '<button class="btn btn-sm" data-j="' + i.id + '" data-s="dropped">Bırak</button></td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="sub">Panoda açık iş yok. CEO\'ya sohbette "şunu takip et" diyerek de iş ekletebilirsiniz.</p>') +
+      '<h3 style="margin-top:28px">CEO hafızası (' + notlar.length + ')</h3><p class="hint">CEO bu notlara uyar. Karar ve tercihlerinizi buraya yazın ya da sohbette söyleyin; CEO da kendisi not alabilir.</p>' +
+      (notlar.length ? '<div class="tablewrap"><table class="table"><tbody>' + notlar.map(n => '<tr><td>' + esc(n.kind) + '</td><td>' + esc(n.body) + (n.source === 'ceo_ajani' ? ' <small>(CEO yazdı)</small>' : '') + '</td><td>' + new Date(n.created_at).toLocaleDateString('tr-TR') + '</td><td><button class="btn btn-sm" data-n="' + n.id + '">Sil</button></td></tr>').join('') + '</tbody></table></div>' : '<p class="sub">Henüz not yok.</p>') +
+      '<form id="nf" class="jform"><select name="k"><option value="karar">Karar</option><option value="not">Not</option><option value="hatirlatma">Hatırlatma</option></select><input name="b" maxlength="600" placeholder="Örn. Pazarlama maili şirket kurulana kadar kapalı" required><button class="btn" type="submit">Hafızaya yaz</button></form></div>';
+    view.querySelectorAll('[data-j]').forEach(b => b.onclick = async () => { await sb.rpc('office_job_update', { p_id: Number(b.dataset.j), p_status: b.dataset.s }); renderBoard(chips); });
+    view.querySelectorAll('[data-n]').forEach(b => b.onclick = async () => { await sb.rpc('office_memory_delete', { p_id: Number(b.dataset.n) }); renderBoard(chips); });
+    document.getElementById('jf').onsubmit = async e => { e.preventDefault(); const f = e.target; const x = await sb.rpc('office_job_add', { p_title: f.t.value, p_owner: f.o.value, p_due: f.d.value || null, p_priority: f.p.value }); if (x.error) { document.getElementById('jer').textContent = x.error.message; return; } renderBoard(chips); };
+    document.getElementById('nf').onsubmit = async e => { e.preventDefault(); const f = e.target; const x = await sb.rpc('office_memory_add', { p_kind: f.k.value, p_body: f.b.value }); if (x.error) { document.getElementById('jer').textContent = x.error.message; return; } renderBoard(chips); };
+  }
+
+  // ---- Ofis sahnesi (izometrik) ve CEO sohbeti
+  function renderOffice(chips) {
+    const dm = {}, adlar = {}, harita = { green: 'ok', yellow: 'warn', red: 'bad', grey: 'off' };
+    AGENTS.forEach(a => { dm[a[0]] = harita[agentStatus(a[0])[0]]; adlar[a[0]] = a[1]; });
+    const calisan = AGENTS.filter(a => dm[a[0]] === 'ok').length;
+    view.innerHTML = chips + '<p class="meta"><b>' + calisan + ' / ' + AGENTS.length + '</b> ajan çalışıyor · bir ajana tıklayın: ofisine girersiniz; CEO\'ya tıklarsanız sohbet açılır.</p>' + STAFF.sahne(dm, adlar, ovTasks, esc) +
+      (AGENTS.every(a => !hbs[a[0]]) ? '<p class="hint">Ajanlar henüz çalışmıyor (sunucu ve şirket kuruluşu bekleniyor). Çalışmaya başlayınca burada canlı görünür.</p>' : '');
+    const sc = document.getElementById('scene'); if (sc) sc.scrollLeft = Math.max(0, (sc.scrollWidth - sc.clientWidth) / 2);
+  }
+
+  async function renderCeo(chips) {
+    view.innerHTML = chips + '<div class="ceoweb"><div class="ceohead"><b>CEO</b><span class="meta" id="ceost"></span></div><div id="cmsgs" class="cmsgs"></div>' +
+      '<form id="cform" class="cform"><textarea id="cin" rows="2" maxlength="2000" placeholder="CEO\'ya yazın: durum sorun, iş verin, \'keşif ajanı ambalaj firmaları bulsun\' deyin..." required></textarea><button class="btn" type="submit">Gönder</button></form>' +
+      '<p class="hint">CEO, Claude ile çalışır. Yalnızca tanımlı görevleri ajanlara dağıtabilir; mail, ilan, fiyat ve üye verisini değiştirmez. Ajanlar sunucuda çalışmadıkça yanıt gelmez, mesajınız sırada bekler.</p></div>';
+    const box = document.getElementById('cmsgs');
+    let son = '';
+    const yenile = async (zorla) => {
+      const r = await sb.rpc('office_chat_list');
+      if (r.error) { box.innerHTML = '<p class="form-note err">' + esc(r.error.message) + '</p>'; return; }
+      const st = agentStatus('ceo_ajani'), cevrimdisi = st[0] !== 'green';
+      document.getElementById('ceost').innerHTML = '<span class="dot ' + st[0] + '"></span> ' + st[1];
+      const imza = JSON.stringify(r.data.map(m => [m.id, m.status])) + cevrimdisi;
+      if (!zorla && imza === son) return; son = imza;
+      const bekliyor = r.data.some(m => m.role === 'user' && m.status === 'pending');
+      box.innerHTML = (r.data.length ? '' : '<p class="sub">Merhaba! Ofisin durumunu, ziyaretleri, iletişim kurulan firmaları sorabilir ya da iş verebilirsiniz.</p>') +
+        r.data.map(m => '<div class="cb ' + (m.role === 'user' ? 'me' : 'ai') + '">' + esc(m.body).replace(/\n/g, '<br>') + '<small>' + new Date(m.created_at).toLocaleString('tr-TR') + (m.status === 'failed' ? ' · yanıtlanamadı' : '') + '</small></div>').join('') +
+        (bekliyor ? '<div class="cb ai typing">' + (cevrimdisi ? 'CEO çevrimdışı. Mesajınız sırada, çalışmaya başlayınca yanıtlanacak.' : 'CEO yazıyor...') + '</div>' : '');
+      box.scrollTop = box.scrollHeight;
+    };
+    await yenile(true);
+    if (ceoTimer) clearInterval(ceoTimer);
+    ceoTimer = setInterval(() => { if (tab !== 'agents' || agSel !== 'ceo_ajani') { clearInterval(ceoTimer); ceoTimer = null; return; } yenile(false); }, 4000);
+    document.getElementById('cform').onsubmit = async e => {
+      e.preventDefault(); const t = document.getElementById('cin'), v = t.value.trim(); if (!v) return;
+      const b = e.target.querySelector('button'); b.disabled = true;
+      const x = await sb.rpc('office_chat_send', { p_body: v }); b.disabled = false;
+      if (x.error) { box.insertAdjacentHTML('beforeend', '<div class="cb ai typing">' + esc(x.error.message) + '</div>'); return; }
+      t.value = ''; yenile(true);
+    };
+  }
+
   function evTable(rows, withAgent) {
     if (!rows.length) return '<p class="sub">Henüz kayıt yok.</p>';
     return '<div class="tablewrap"><table class="table"><tbody>' + rows.map(e =>
@@ -387,7 +463,7 @@
       '<td>' + (LV[e.level] || '•') + ' ' + esc(e.message) + '</td></tr>').join('') + '</tbody></table></div>';
   }
 
-  setInterval(async () => { if (tab === 'agents') { try { await loadAgents(); render(); } catch (e) {} } }, 30000);
+  setInterval(async () => { if (tab === 'agents' && !['ceo_ajani', 'board'].includes(agSel)) { try { await loadAgents(); render(); } catch (e) {} } }, 30000);
 
   // ---------- PAZARLAMA ----------
   const FREEMAIL = /@(gmail|googlemail|hotmail|outlook|live|yahoo|yandex|icloud|mynet|msn|protonmail)\./i;
