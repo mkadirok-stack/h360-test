@@ -17,6 +17,8 @@
     <h2>İlan Ver</h2>
     <p class="sub">Satmak istediğiniz hammaddenin bilgilerini girin. Talebiniz incelendikten sonra yayınlanır ve size dönüş yapılır.</p>
 
+    <div id="sozlesme-kapi" hidden></div>
+
     <div class="form" id="picker">
       <label>Sektör
         <select id="sel-sector"><option value="">Seçiniz</option></select>
@@ -95,6 +97,7 @@
     <div id="reqs" class="tablewrap"><p class="sub">Yükleniyor...</p></div>
 
     <h2 style="margin-top:48px">İlanlarım</h2>
+    <p class="hint" id="penc-head" role="status"></p>
     <div id="mine" class="tablewrap"><p class="sub">Yükleniyor...</p></div>
   </div>
 </main>
@@ -112,7 +115,44 @@
   const $ = id => document.getElementById(id);
   const up = s => (s || '').toLocaleUpperCase('tr');
   const NEW = '__new';
-  const STATUS = { pending: ['Beklemede', 'b-wait'], published: ['Yayında', 'b-ok'], rejected: ['Reddedildi', 'b-bad'] };
+  const STATUS = { pending: ['Beklemede', 'b-wait'], published: ['Yayında', 'b-ok'], rejected: ['Reddedildi', 'b-bad'], withdrawn: ['Kaldırıldı', 'b-bad'] };
+
+  // ---- Satıcı sözleşmeleri: güncel sürüm onaylanmadan ilan verilemez
+  (async () => {
+    if (me.role === 'admin') return;
+    const ok = await sb.rpc('satici_sozlesme_onayli');
+    if (ok.data === true) return;
+    const docs = await sb.from('contract_docs').select('*').eq('active', true).order('key');
+    const list = docs.data || [];
+    $('picker').hidden = true; $('req-form').hidden = true; $('listing-form').hidden = true;
+    const kapi = $('sozlesme-kapi'); kapi.hidden = false;
+    kapi.innerHTML = '<div class="gate"><h3>Satıcı sözleşmelerini onaylayın</h3>' +
+      '<p>İlan verebilmek için aşağıdaki metinleri okuyup onaylamanız gerekir. Onayınız tarih, sürüm ve bağlantı bilgisiyle kaydedilir.</p>' +
+      list.map(d => '<label class="check"><input type="checkbox" class="sz" required> <span><a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.title) + '</a> (sürüm ' + esc(d.version) + ') metnini okudum ve kabul ediyorum.</span></label>').join('') +
+      '<p class="hint">İlan değişiklik saatleri: hafta içi 08:00–17:00 arası yayındaki ilanı kendiniz kaldıramaz veya revize edemezsiniz; bu saatlerde bizimle iletişime geçersiniz.</p>' +
+      '<button class="btn" id="sz-btn" type="button" disabled>Onayla ve devam et</button> <p class="form-note" id="sz-note" role="status"></p></div>';
+    const boxes = () => [...kapi.querySelectorAll('.sz')];
+    kapi.addEventListener('change', () => { $('sz-btn').disabled = !boxes().length || !boxes().every(b => b.checked); });
+    $('sz-btn').addEventListener('click', async () => {
+      $('sz-btn').disabled = true;
+      const r = await sb.rpc('satici_sozlesme_onayla', { p_user_agent: navigator.userAgent });
+      if (r.error) { $('sz-btn').disabled = false; $('sz-note').className = 'form-note err'; $('sz-note').textContent = 'Onay kaydedilemedi: ' + r.error.message; return; }
+      location.reload();
+    });
+  })();
+
+  // ---- İlan değişiklik penceresi (sunucu saati; kural veritabanında da zorlanır)
+  let pencere = null; // true: açık (iptal/revize yapılabilir), false: kapalı (08:00-17:00 hafta içi)
+  async function pencereYenile() {
+    const r = await sb.rpc('ilan_pencere_durum');
+    pencere = r.data ? !!r.data.acik : null;
+    document.querySelectorAll('#mine [data-act]').forEach(b => { b.disabled = pencere !== true; });
+    document.querySelectorAll('#mine .penc-note').forEach(n => { n.hidden = pencere === true; });
+    const hd = document.getElementById('penc-head');
+    if (hd) hd.innerHTML = pencere === true
+      ? '<b>Değişiklik penceresi AÇIK.</b> Yayındaki ilanlarınızı şimdi kaldırabilir veya fiyatını revize edebilirsiniz. Hafta içi 08:00\'de kilitlenir.'
+      : '<b>Değişiklik penceresi KAPALI.</b> Hafta içi 08:00–17:00 arası iptal/revize için bizimle iletişime geçin. Cuma 17:00\'den Pazartesi 08:00\'e kadar ve her gün 17:00–08:00 arası açıktır.';
+  }
   const RSTATUS = {
     pending: ['İnceleniyor', 'b-wait'], created: ['Oluşturuldu, ilan verebilirsiniz', 'b-ok'],
     needs_confirmation: ['Yanıtınız bekleniyor', 'b-wait'], confirmed_same: ['Onaylandı', 'b-ok'],
@@ -326,15 +366,51 @@
     const box = $('mine');
     if (error) { box.innerHTML = '<p class="form-note err">' + t('İlanlar yüklenemedi.') + '</p>'; return; }
     if (!data.length) { box.innerHTML = '<p class="sub">' + t('Henüz ilanınız yok.') + '</p>'; return; }
-    box.innerHTML = '<table class="table"><thead><tr><th>' + t('Tarih') + '</th><th>' + t('İlan') + '</th><th>' + t('Miktar') + '</th><th>' + t('Fiyatınız') + '</th><th>' + t('Durum') + '</th></tr></thead><tbody>' +
+    mineRows = data;
+    box.innerHTML = '<table class="table"><thead><tr><th>' + t('Tarih') + '</th><th>' + t('İlan') + '</th><th>' + t('Miktar') + '</th><th>' + t('Fiyatınız') + '</th><th>' + t('Durum') + '</th><th>İşlem</th></tr></thead><tbody>' +
       data.map(l => {
         const s = STATUS[l.status] || [l.status, ''];
+        const act = l.status === 'published'
+          ? '<button class="btn btn-sm" data-act="revise" data-id="' + l.id + '" type="button"' + (pencere === true ? '' : ' disabled') + '>Fiyat revize</button> ' +
+            '<button class="btn btn-sm btn-dark" data-act="cancel" data-id="' + l.id + '" type="button"' + (pencere === true ? '' : ' disabled') + '>İlanı kaldır</button>' +
+            '<div class="penc-note hint"' + (pencere === true ? ' hidden' : '') + '>Hafta içi 08:00–17:00 arası değişiklik için <a target="_blank" rel="noopener" href="' + H.waLink('Merhaba, #' + l.id + ' numaralı ilanımla ilgili değişiklik yapmak istiyorum.') + '">bizimle iletişime geçin</a>.</div>'
+          : '';
         return '<tr><td>' + dateTR(l.created_at) + '</td><td>' + esc(l.title) + '</td><td>' + esc(l.quantity) + ' ' + esc(t(l.unit)) +
-          '</td><td>' + money(l.seller_price) + ' ' + t('/ {u} + %{v} KDV', { u: esc(t(l.unit)), v: Number(l.vat_pct ?? 20) }) + '</td><td><span class="badge ' + s[1] + '">' + t(s[0]) + '</span></td></tr>';
+          '</td><td>' + money(l.seller_price) + ' ' + t('/ {u} + %{v} KDV', { u: esc(t(l.unit)), v: Number(l.vat_pct ?? 20) }) + '</td><td><span class="badge ' + s[1] + '">' + t(s[0]) + '</span></td><td>' + act + '<div class="act-box" id="ab-' + l.id + '"></div></td></tr>';
       }).join('') + '</tbody></table>';
   }
+  let mineRows = [];
+  const hata = m => (/KAPALI/.test(m) ? 'Şu an değişiklik penceresi kapalı (hafta içi 08:00–17:00). Lütfen bizimle iletişime geçin.' : m);
+  $('mine').addEventListener('click', async e => {
+    const b = e.target.closest('[data-act],[data-go]'); if (!b || b.disabled) return;
+    const id = Number(b.dataset.id), l = mineRows.find(x => x.id === id), ab = $('ab-' + id);
+    if (b.dataset.act === 'cancel') {
+      ab.innerHTML = '<p class="hint">Bu ilan yayından kaldırılacak. Emin misiniz?</p><button class="btn btn-sm btn-dark" data-go="cancel" data-id="' + id + '" type="button">Evet, kaldır</button>';
+    } else if (b.dataset.act === 'revise') {
+      const tr = ((l && l.price_tiers) || []).concat([{}, {}, {}]).slice(0, 3);
+      ab.innerHTML = '<div class="form"><label>Yeni birim fiyat (USD, KDV hariç)<input data-rp type="number" min="0" step="any" value="' + esc(l ? l.seller_price : '') + '"></label>' +
+        '<p class="hint">Palet kademeleri (isteğe bağlı)</p>' + tr.map(x => '<div class="tier-row"><span>Palet ve üzeri</span><input type="number" min="2" step="1" data-rt="min" value="' + esc(x.min_pallets || '') + '"><input type="number" min="0" step="any" data-rt="price" value="' + esc(x.price || '') + '"></div>').join('') +
+        '<button class="btn btn-sm" data-go="revise" data-id="' + id + '" type="button">Kaydet</button></div>';
+    } else if (b.dataset.go) {
+      b.disabled = true;
+      let r;
+      if (b.dataset.go === 'cancel') r = await sb.rpc('seller_ilan_iptal', { p_id: id });
+      else {
+        const price = Number(ab.querySelector('[data-rp]').value), tiers = [];
+        for (const row of ab.querySelectorAll('.tier-row')) {
+          const mn = row.querySelector('[data-rt=min]').value, pr = row.querySelector('[data-rt=price]').value;
+          if (mn === '' && pr === '') continue;
+          tiers.push({ min_pallets: Number(mn), price: Number(pr) });
+        }
+        r = await sb.rpc('seller_ilan_revize', { p_id: id, p_seller_price: price, p_price_tiers: tiers });
+      }
+      if (r.error) { b.disabled = false; ab.insertAdjacentHTML('beforeend', '<p class="form-note err">' + esc(hata(r.error.message)) + '</p>'); pencereYenile(); return; }
+      await loadMine(); pencereYenile();
+    }
+  });
+  setInterval(pencereYenile, 60000);
 
-  loadReqs(); loadMine();
+  loadReqs(); pencereYenile().then(loadMine);
 })();
 </script>
 <script src="js/analytics.js" defer></script>

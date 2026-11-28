@@ -37,7 +37,7 @@
   function changes(f, l) {
     const out = [];
     const cur = H.effPrice(l), was = f.seen_price == null ? null : Number(f.seen_price);
-    if (was !== null && Math.abs(cur - was) > 0.004) {
+    if (cur !== null && was !== null && Math.abs(cur - was) > 0.004) {
       out.push(cur < was ? ['chg-down', t('Fiyat düştü: {a} → {b}', { a: money(was), b: money(cur) })]
                          : ['chg-up', t('Fiyat arttı: {a} → {b}', { a: money(was), b: money(cur) })]);
     }
@@ -60,7 +60,8 @@
       '<p class="chips"><span class="chip ' + sk.cls + '">' + esc(sk.label) + '</span></p>' +
       (r.ch.length ? '<p>' + r.ch.map(c => '<span class="chg ' + c[0] + '">' + esc(c[1]) + '</span>').join('') + '</p>' : '<p class="meta">' + t('Değişiklik yok') + '</p>') +
       '<p class="meta">' + num(l.quantity) + ' ' + esc(t(l.unit)) + (l.city ? ' · ' + t('Depo teslim') + ': ' + esc(l.city) : '') + '</p>' +
-      '<div class="price"><strong>' + money(H.effPrice(l)) + '</strong><small>' + u + ' + %' + Number(l.vat_pct ?? 20) + ' ' + 'KDV</small></div>' +
+      (H.fiyatYok(l) ? '<div class="price"><span class="meta">🔒 ' + esc(H.fiyatNotu()) + '</span></div>'
+        : '<div class="price"><strong>' + money(H.effPrice(l)) + '</strong><small>' + u + ' + %' + Number(l.vat_pct ?? 20) + ' ' + 'KDV</small></div>') +
       '<div class="actions">' + (r.ch.length ? '<button class="btn btn-sm" data-seen="' + l.id + '">' + t('Görüldü') + '</button>' : '') +
       '<a class="btn btn-sm" href="ilan.html?id=' + l.id + '">Detay</a>' +
       '<button class="btn btn-sm" data-rm="' + l.id + '">' + t('Kaldır') + '</button></div></article>';
@@ -85,8 +86,9 @@
 
   async function markSeen(list) {
     for (const r of list) {
-      const { error } = await sb.from('favorites').update({ seen_price: H.effPrice(r.l), seen_availability: r.l.availability || 'ready', seen_quantity: r.l.quantity, seen_at: new Date().toISOString() }).eq('listing_id', r.l.id);
-      if (!error) { r.f.seen_price = H.effPrice(r.l); r.f.seen_availability = r.l.availability || 'ready'; r.f.seen_quantity = r.l.quantity; r.ch = []; }
+      const ep = H.effPrice(r.l); // fiyat gizli dönemde null: önceki fiyat bilgisini silme
+      const { error } = await sb.from('favorites').update(Object.assign({ seen_availability: r.l.availability || 'ready', seen_quantity: r.l.quantity, seen_at: new Date().toISOString() }, ep === null ? {} : { seen_price: ep })).eq('listing_id', r.l.id);
+      if (!error) { if (ep !== null) r.f.seen_price = ep; r.f.seen_availability = r.l.availability || 'ready'; r.f.seen_quantity = r.l.quantity; r.ch = []; }
     }
     render();
   }

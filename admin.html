@@ -129,7 +129,24 @@
       (!t || [p.full_name, p.company, p.email, p.phone, p.city, p.interests].join(' ').toLocaleLowerCase('tr').includes(t)));
   }
 
+  // Satıcı sözleşme onayları (güncel sürüm): yalnızca bir kez yüklenir
+  let accState = null;
+  function loadAcc() {
+    if (accState) return; accState = { docs: [], by: {} };
+    Promise.all([sb.from('contract_docs').select('key,version').eq('active', true), sb.from('contract_acceptances').select('user_id,contract_key,version,accepted_at')]).then(([d, a]) => {
+      accState.docs = d.data || []; (a.data || []).forEach(r => { (accState.by[r.user_id] = accState.by[r.user_id] || {})[r.contract_key + '|' + r.version] = r.accepted_at; });
+      if (tab === 'members') renderMembers();
+    });
+  }
+  function accCell(p) {
+    if (p.role !== 'seller') return '';
+    if (!accState || !accState.docs.length) return '—';
+    const mine = accState.by[p.id] || {}, ok = accState.docs.every(d => mine[d.key + '|' + d.version]);
+    return ok ? '<span title="Güncel sürüm onaylı">✓ onaylı</span>' : '<b style="color:#c0392b">✗ onaysız</b>';
+  }
+
   function renderMembers() {
+    loadAcc();
     const rows = filteredMembers();
     const ROLE = { buyer: 'Alıcı', seller: 'Satıcı', admin: 'Yönetici' };
     view.innerHTML =
@@ -137,9 +154,9 @@
       '<select id="mrole"><option value="">Tüm türler</option><option value="buyer">Alıcı</option><option value="seller">Satıcı</option></select>' +
       '<select id="mcons"><option value="">Mail izni: hepsi</option><option value="true">Mail izni verenler</option><option value="false">İzin vermeyenler</option></select>' +
       '<button class="btn btn-sm" id="csv" type="button">CSV indir (' + rows.length + ')</button></div>' +
-      '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Tür</th><th>Ad Soyad</th><th>Firma</th><th>E-posta</th><th>Telefon</th><th>Şehir</th><th>İlgi</th><th>Mail izni</th></tr></thead><tbody>' +
+      '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Tür</th><th>Ad Soyad</th><th>Firma</th><th>E-posta</th><th>Telefon</th><th>Şehir</th><th>İlgi</th><th>Mail izni</th><th>Satıcı sözleşmesi</th></tr></thead><tbody>' +
       rows.map(p => '<tr><td>' + dateTR(p.created_at) + '</td><td>' + (ROLE[p.role] || p.role) + '</td><td>' + esc(p.full_name) + '</td><td>' + esc(p.company) +
-        '</td><td>' + esc(p.email) + '</td><td>' + esc(p.phone) + '</td><td>' + esc(p.city) + '</td><td>' + esc(p.interests) + '</td><td>' + (p.marketing_consent ? '✓' : '—') + '</td></tr>').join('') +
+        '</td><td>' + esc(p.email) + '</td><td>' + esc(p.phone) + '</td><td>' + esc(p.city) + '</td><td>' + esc(p.interests) + '</td><td>' + (p.marketing_consent ? '✓' : '—') + '</td><td>' + accCell(p) + '</td></tr>').join('') +
       '</tbody></table></div>';
     $('#mrole').value = mf.role; $('#mcons').value = mf.consent;
   }
@@ -304,6 +321,8 @@
     ['kesif_ajani', 'Keşif Ajanı', 'Web aramasıyla Türkiye\'deki yeni aday firmaları bulur; e-postayı firmanın kendi sitesinden doğrular; ulaşamadığını bildirir.', 'Her gün 09:00-09:30'],
     ['haber_ajani', 'Haber Ajanı', 'Yayıncıların RSS akışından plastik HAMMADDE haberlerini alır (ücretsiz), kaynak adı, bağlantısı ve orijinal başlığıyla sitede Haberler sayfasında yayınlar; makine/fuar haberlerini eler.', 'Her 2 saatte bir (07:00-23:00)'],
     ['tds_ajani', 'TDS Ajanı', 'Kataloğa eklenen ürünlerin TDS (teknik veri sayfası) PDF bağlantısını üreticinin sitesinden bulur, doğrular ve ürüne bağlar. Müşteri uğraşmaz; marka sitesi tanımlı olmalıdır.', 'Her 15 dk (08:00-22:00), ürün başına 14 günde bir'],
+    ['pencere_bekcisi', 'Pencere Bekçisi', 'İlan değişiklik penceresinin (hafta içi 08:00-17:00 kilitli; 17:00-08:00 ve Cuma 17:00-Pazartesi 08:00 açık) ve fiyat gizlemenin doğru işlediğini doğrular; uyumsuzlukta telefona uyarı gönderir. Yalnızca okur.', 'Her dakika'],
+    ['ilan_takipcisi', 'İlan Takipçisi', 'Satıcıların ilan kaldırma ve fiyat revizelerini izler; büyük fiyat değişiminde (±%15) uyarır; sabah saat 07:30 itibarıyla gece değişikliklerinin özetini gönderir. Yalnızca okur.', 'Her 5 dk · özet 07:30'],
     ['raporcu_ajani', 'Raporcu', 'Günlük özet raporu (18:00) gönderir; sessiz kalan ajanı yakalar ve uyarır; eski kayıtları temizler.', 'Her 5 dk · özet 18:00']
   ];
   let newsL = [];

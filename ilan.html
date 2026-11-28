@@ -47,19 +47,24 @@
     ? '<s>' + money(l.list_price) + '</s> <strong class="camp">' + money(l.campaign_price) + '</strong>'
     : '<strong>' + money(l.list_price) + '</strong>';
   const msg = t('Merhaba, #{id} numaralı "{title}" ilanı hakkında bilgi almak istiyorum.', { id: l.id, title: l.title });
+  const gizli = H.fiyatYok(l);
 
   box.innerHTML =
     '<p><a href="ilanlar.html">← İlanlara dön</a></p>' +
     (l.category ? '<span class="badge">' + esc(l.category) + '</span>' : '') +
     '<h2>' + esc(l.title) + '</h2>' +
     '<p class="meta">' + t('İlan #{id} · {d}', { id: l.id, d: dateTR(l.published_at) }) + '</p>' +
-    '<div class="pricebox"><div class="price big">' + price + '<small>' + u + '</small>' +
-    '<div class="cashnote">' + t('Nakit ödemede %{n} iskonto:', { n: H.cfg.CASH_DISCOUNT_PCT }) + ' <b>' + money((l.campaign_price || l.list_price) * (1 - H.cfg.CASH_DISCOUNT_PCT / 100)) + '</b>' + u + '</div></div>' +
-    '<a class="btn wa-cta" target="_blank" rel="noopener" href="' + waLink(msg) + '">WhatsApp ile sor / teklif ver</a><p class="hint">' + t('Talebinizde en kısa sürede dönüş sağlanacaktır.') + '</p></div>' +
+    (gizli
+      ? '<div class="pricebox"><div class="price big"><span class="meta">🔒 ' + esc(H.fiyatNotu()) + '</span></div>' +
+        '<a class="btn wa-cta" target="_blank" rel="noopener" href="' + waLink(msg) + '">WhatsApp ile sor</a><p class="hint">' + t('Talebinizde en kısa sürede dönüş sağlanacaktır.') + '</p></div>'
+      : '<div class="pricebox"><div class="price big">' + price + '<small>' + u + '</small>' +
+        '<div class="cashnote">' + t('Nakit ödemede %{n} iskonto:', { n: H.cfg.CASH_DISCOUNT_PCT }) + ' <b>' + money((l.campaign_price || l.list_price) * (1 - H.cfg.CASH_DISCOUNT_PCT / 100)) + '</b>' + u + '</div></div>' +
+        '<a class="btn wa-cta" target="_blank" rel="noopener" href="' + waLink(msg) + '">WhatsApp ile sor / teklif ver</a><p class="hint">' + t('Talebinizde en kısa sürede dönüş sağlanacaktır.') + '</p></div>') +
     '<p class="hint">' + t('Fiyatlar USD cinsindendir ve KDV hariçtir; bu ilan için KDV oranı %{v} olup fiyata ayrıca eklenir. Faturalandırma, fatura tarihindeki TCMB döviz satış kuru esas alınarak TL olarak yapılır.', { v: Number(l.vat_pct ?? 20) }) + '</p>' + '<dl class="facts"><div><dt>Miktar</dt><dd>' + esc(l.quantity) + ' ' + esc(t(l.unit)) + '</dd></div>' + '<div><dt>' + t('Stok durumu') + '</dt><dd><span class="chip ' + H.stock(l).cls + '">' + esc(H.stock(l).label) + '</span>' + (l.stock_updated_at ? '<br><small>' + t('Stok güncelleme: {d}', { d: dateTR(l.stock_updated_at) }) + '</small>' : '') + '</dd></div>' + '<div><dt>' + t('Min. sipariş') + '</dt><dd>1 ' + t('palet') + ' (' + Number(l.pallet_kg || 1000).toLocaleString('tr-TR') + ' kg)</dd></div>' + productFacts +
     (l.city ? '<div><dt>Depo teslim</dt><dd>' + esc(l.city) + '</dd></div>' : '') + '</dl>' +
     (l.description ? '<h3>Açıklama</h3><p class="desc">' + esc(l.description) + '</p>' : '');
-  // Palet bazlı fiyat tablosu + hesaplayıcı (minimum sipariş 1 palet)
+  // Palet bazlı fiyat tablosu + hesaplayıcı (minimum sipariş 1 palet) — fiyat gizliyken gösterilmez
+  if (!gizli) {
   const pq = Number(l.pallet_qty || 1), fxr = H.fx && H.fx.usd_sell;
   const tiers = [{ min_pallets: 1, price: l.list_price, campaign: l.campaign_price }].concat(l.price_tiers_public || []);
   const maxPallets = Math.max(1, Math.floor(Number(l.quantity) / pq));
@@ -82,6 +87,7 @@
   };
   $('calc-n').addEventListener('input', calc); calc();
   box.insertAdjacentHTML('beforeend', '<p class="hint">' + t('Fiyatlar depo teslimdir (ürünün bulunduğu şehirde). Nakliye dahil fiyat için bizimle iletişime geçebilirsiniz.') + ' <a target="_blank" rel="noopener" href="' + waLink(t('Merhaba, #{id} numaralı "{title}" ilanı için adresime teslim (nakliye dahil) fiyat almak istiyorum.', { id: l.id, title: l.title })) + '">' + t('Adrese teslim fiyatı iste') + '</a></p>');
+  }
   const favOn = (await H.loadFavs()).has(l.id);
   box.insertAdjacentHTML('beforeend', '<p><button type="button" class="btn btn-sm" id="favbtn">' + (favOn ? '★ ' + t('Favorilerden çıkar') : '☆ ' + t('Favorilere ekle')) + '</button></p>');
   $('favbtn').addEventListener('click', async () => {
