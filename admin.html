@@ -384,7 +384,7 @@
     ['siparis_takipcisi', 'Sipariş Takipçisi', 'Yeni siparişte proforma PDF dosyasını üretip alıcıya mail atar; süresi dolanları kapatır, bitmeden hatırlatır; imzalı belge gelince ve ödeme gecikince ofise bildirir. Ödendi işaretini insan koyar.', 'Her dakika'],
     ['raporcu_ajani', 'Raporcu', 'Günlük özet raporu (18:00) gönderir; sessiz kalan ajanı yakalar ve uyarır; eski kayıtları temizler.', 'Her 5 dk · özet 18:00']
   ];
-  let newsL = [];
+  let newsL = [], xpD;
   let hbs = {}, evs = [], mailToday = [], agSel = 'office', ovTasks = {}, ceoTimer = null;
 
   async function loadAgents() {
@@ -498,9 +498,10 @@
     const dm = {}, adlar = {}, harita = { green: 'ok', yellow: 'warn', red: 'bad', grey: 'off' };
     AGENTS.forEach(a => { dm[a[0]] = harita[agentStatus(a[0])[0]]; adlar[a[0]] = a[1]; });
     const calisan = AGENTS.filter(a => dm[a[0]] === 'ok').length;
-    view.innerHTML = chips + '<p class="meta"><b>' + calisan + ' / ' + AGENTS.length + '</b> ajan çalışıyor · bir ajana tıklayın: ofisine girersiniz; CEO\'ya tıklarsanız sohbet açılır.</p>' + STAFF.sahne(dm, adlar, ovTasks, esc) +
+    view.innerHTML = chips + '<p class="meta"><b>' + calisan + ' / ' + AGENTS.length + '</b> ajan çalışıyor · bir ajana tıklayın: ofisine girersiniz; CEO\'ya tıklarsanız sohbet açılır.</p>' + STAFF.sahne(dm, adlar, ovTasks, esc, { hb: hbs, ozet: Object.fromEntries(AGENTS.map(a => [a[0], (a[2] || '').split(/[.:]/)[0].slice(0, 60)])), xp: STAFF.xpHesap && xpD ? STAFF.xpHesap(xpD) : null }) +
       (AGENTS.every(a => !hbs[a[0]]) ? '<p class="hint">Ajanlar henüz çalışmıyor (sunucu ve şirket kuruluşu bekleniyor). Çalışmaya başlayınca burada canlı görünür.</p>' : '');
-    const sc = document.getElementById('scene'); if (sc) sc.scrollLeft = Math.max(0, (sc.scrollWidth - sc.clientWidth) / 2);
+    if (STAFF.sahneBagla) STAFF.sahneBagla();
+    if (xpD === undefined) { xpD = null; sb.rpc('office_xp').then(r => { xpD = r.error ? null : r.data; if (tab === 'agents') render(); }); }
   }
 
   async function renderCeo(chips) {
