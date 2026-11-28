@@ -182,9 +182,9 @@
       '<select id="mrole"><option value="">Tüm türler</option><option value="buyer">Alıcı</option><option value="seller">Satıcı</option><option value="both">Alıcı+Satıcı</option></select>' +
       '<select id="mcons"><option value="">Mail izni: hepsi</option><option value="true">Mail izni verenler</option><option value="false">İzin vermeyenler</option></select>' +
       '<button class="btn btn-sm" id="csv" type="button">CSV indir (' + rows.length + ')</button></div>' +
-      '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Tür</th><th>Ad Soyad</th><th>Firma</th><th>E-posta</th><th>Telefon</th><th>Şehir</th><th>İlgi</th><th>Mail izni</th><th>Satıcı sözleşmesi</th></tr></thead><tbody>' +
+      '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Tür</th><th>Ad Soyad</th><th>Firma</th><th>E-posta</th><th>Telefon</th><th>Ülke</th><th>Şehir</th><th>İlgi</th><th>Mail izni</th><th>Satıcı sözleşmesi</th></tr></thead><tbody>' +
       rows.map(p => '<tr><td>' + dateTR(p.created_at) + '</td><td>' + (ROLE[p.role] || p.role) + '</td><td>' + esc(p.full_name) + '</td><td>' + esc(p.company) +
-        '</td><td>' + esc(p.email) + '</td><td>' + esc(p.phone) + '</td><td>' + esc(p.city) + '</td><td>' + esc(p.interests) + '</td><td>' + (p.marketing_consent ? '✓' : '—') + '</td><td>' + accCell(p) + '</td></tr>').join('') +
+        '</td><td>' + esc(p.email) + '</td><td>' + esc(p.phone) + '</td><td>' + esc(p.country || 'Türkiye') + '</td><td>' + esc(p.city) + '</td><td>' + esc(p.interests) + '</td><td>' + (p.marketing_consent ? '✓' : '—') + '</td><td>' + accCell(p) + '</td></tr>').join('') +
       '</tbody></table></div>';
     $('#mrole').value = mf.role; $('#mcons').value = mf.consent;
   }
@@ -197,9 +197,9 @@
   function exportCSV() {
     const rows = filteredMembers();
     const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-    const head = ['E-posta', 'Ad Soyad', 'Firma', 'Telefon', 'Şehir', 'Tür', 'İlgi alanı', 'Mail izni', 'Kayıt tarihi'];
+    const head = ['E-posta', 'Ad Soyad', 'Firma', 'Telefon', 'Ülke', 'Şehir', 'Tür', 'İlgi alanı', 'Mail izni', 'Kayıt tarihi'];
     const lines = [head.map(cell).join(',')].concat(rows.map(p =>
-      [p.email, p.full_name, p.company, p.phone, p.city, p.role, p.interests, p.marketing_consent ? 'evet' : 'hayır', dateTR(p.created_at)].map(cell).join(',')));
+      [p.email, p.full_name, p.company, p.phone, p.country || 'Türkiye', p.city, p.role, p.interests, p.marketing_consent ? 'evet' : 'hayır', dateTR(p.created_at)].map(cell).join(',')));
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = 'uyeler-' + new Date().toISOString().slice(0, 10) + '.csv';

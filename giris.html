@@ -40,6 +40,9 @@
       </div>
       <div class="row">
         <label>Telefon<input name="phone" type="tel" required autocomplete="tel"></label>
+        <label>Ülke<select name="country" id="country-sel" required autocomplete="country-name"></select></label>
+      </div>
+      <div class="row" id="city-row">
         <label>Şehir<select name="city" id="city-sel" required autocomplete="address-level1"><option value="">Seçiniz</option></select></label>
       </div>
       <fieldset class="interests">
@@ -71,8 +74,16 @@
   const ILLER = ['Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Aksaray', 'Amasya', 'Ankara', 'Antalya', 'Ardahan', 'Artvin', 'Aydın', 'Balıkesir', 'Bartın', 'Batman', 'Bayburt', 'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa',
     'Çanakkale', 'Çankırı', 'Çorum', 'Denizli', 'Diyarbakır', 'Düzce', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkâri', 'Hatay', 'Iğdır', 'Isparta', 'İstanbul (Anadolu)', 'İstanbul (Avrupa)', 'İzmir',
     'Kahramanmaraş', 'Karabük', 'Karaman', 'Kars', 'Kastamonu', 'Kayseri', 'Kilis', 'Kırıkkale', 'Kırklareli', 'Kırşehir', 'Kocaeli', 'Konya', 'Kütahya', 'Malatya', 'Manisa', 'Mardin', 'Mersin', 'Muğla', 'Muş', 'Nevşehir', 'Niğde', 'Ordu', 'Osmaniye', 'Rize',
-    'Sakarya', 'Samsun', 'Siirt', 'Sinop', 'Sivas', 'Şanlıurfa', 'Şırnak', 'Tekirdağ', 'Tokat', 'Trabzon', 'Tunceli', 'Uşak', 'Van', 'Yalova', 'Yozgat', 'Zonguldak'].sort((a, b) => a.localeCompare(b, 'tr')).concat(['Yurt dışı']);
+    'Sakarya', 'Samsun', 'Siirt', 'Sinop', 'Sivas', 'Şanlıurfa', 'Şırnak', 'Tekirdağ', 'Tokat', 'Trabzon', 'Tunceli', 'Uşak', 'Van', 'Yalova', 'Yozgat', 'Zonguldak'].sort((a, b) => a.localeCompare(b, 'tr'));
   document.querySelector('#city-sel').insertAdjacentHTML('beforeend', ILLER.map(c => '<option value="' + c + '">' + c + '</option>').join(''));
+  // Ülke: ISO bölge kodlarından Türkçe adlarla liste (Türkiye ilk ve seçili). Türkiye dışında şehir sorulmaz.
+  const ULKE_KODLARI = 'AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI CV KH CM CA CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KP KR KW KG LA LV LB LS LR LY LI LT LU MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG MK NO OM PK PW PS PA PG PY PE PH PL PT QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW XK HK'.split(' ');
+  let ulkeler = [];
+  try { const dn = new Intl.DisplayNames(['tr'], { type: 'region' }); ulkeler = ULKE_KODLARI.map(k => { try { return dn.of(k); } catch (e) { return null; } }).filter(x => x && x.length > 2); } catch (e) { ulkeler = ['Almanya', 'Azerbaycan', 'Bulgaristan', 'Çin', 'Gürcistan', 'Hindistan', 'Irak', 'İran', 'İtalya', 'Mısır', 'Rusya', 'Suudi Arabistan', 'Birleşik Arap Emirlikleri', 'Birleşik Krallık', 'ABD']; }
+  ulkeler = [...new Set(ulkeler)].filter(x => x !== 'Türkiye').sort((a, b) => a.localeCompare(b, 'tr'));
+  document.querySelector('#country-sel').innerHTML = ['Türkiye'].concat(ulkeler).map(c => '<option value="' + c + '">' + c + '</option>').join('');
+  const ulkeDegisti = () => { const tr = document.querySelector('#country-sel').value === 'Türkiye'; document.querySelector('#city-row').hidden = !tr; document.querySelector('#city-sel').required = tr; if (!tr) document.querySelector('#city-sel').value = ''; };
+  document.querySelector('#country-sel').addEventListener('change', ulkeDegisti);
   const go = role => { location.href = role === 'admin' ? 'admin.html' : role === 'seller' ? 'ilan-ver.html' : 'ilanlar.html'; };
   if (me) return go(me.role);
 
@@ -123,7 +134,7 @@
     e.preventDefault();
     const note = $('#signup-note'), f = new FormData(signupForm);
     if (!f.get('full_name') || !f.get('phone') || !f.get('email')) return say(note, 'Ad soyad, telefon ve e-posta zorunludur.', 'err');
-    if (!f.get('city')) return say(note, t('Lütfen şehir seçin.'), 'err');
+    if (f.get('country') === 'Türkiye' && !f.get('city')) return say(note, t('Lütfen şehir seçin.'), 'err');
     if ((f.get('password') || '').length < 8) return say(note, 'Şifre en az 8 karakter olmalı.', 'err');
     if (!f.get('kvkk')) return say(note, 'Devam etmek için kişisel veri onayını işaretleyin.', 'err');
     const picked = [...signupForm.querySelectorAll('input[name=interest]:checked')];
@@ -136,7 +147,7 @@
         emailRedirectTo: location.origin + location.pathname.replace(/[^/]*$/, '') + 'giris.html',
         data: {
           role: f.get('role'), full_name: f.get('full_name').trim(), company: (f.get('company') || '').trim(),
-          phone: f.get('phone').trim(), city: (f.get('city') || '').trim(), interests: picked.map(x => x.dataset.name).join(', '), interest_ids: picked.map(x => Number(x.value)),
+          phone: f.get('phone').trim(), country: f.get('country') || 'Türkiye', city: f.get('country') === 'Türkiye' ? (f.get('city') || '').trim() : '', interests: picked.map(x => x.dataset.name).join(', '), interest_ids: picked.map(x => Number(x.value)),
           marketing_consent: !!f.get('marketing')
         }
       }
