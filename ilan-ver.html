@@ -109,7 +109,7 @@
 <script>
 (async () => {
   const { sb, esc, money, dateTR } = H;
-  const me = await H.init({ require: ['seller', 'admin'] });
+  const me = await H.init({ require: ['buyer', 'seller', 'admin'] });
   if (!me) return;
 
   const $ = id => document.getElementById(id);
@@ -326,13 +326,16 @@
       const up = await sb.storage.from('tds').upload(tdsPath, dosya, { contentType: 'application/pdf' });
       if (up.error) { btn.disabled = false; return say(note, t('TDS yüklenemedi: {m}', { m: up.error.message }), 'err'); }
     }
-    const { error } = await sb.rpc('submit_listing', {
+    const { data: sonuc, error } = await sb.rpc('submit_listing', {
       p_title: f.title.trim(), p_description: (f.description || '').trim(), p_quantity: Number(f.quantity), p_unit: f.unit,
       p_city: f.city.trim(), p_seller_price: Number(f.seller_price), p_vat_pct: Number(f.vat_pct), p_product_id: Number(S.code), p_attrs: a, p_tds_path: tdsPath, p_pallet_kg: pkg, p_price_tiers: tiers,
       p_availability: f.availability || 'ready', p_expected_date: f.availability === 'incoming' ? f.expected_date : null
     });
     btn.disabled = false;
-    if (error) return say(note, t('Gönderilemedi: {m}', { m: error.message }), 'err');
+    if (error) return say(note, /SOZLESME/.test(error.message) ? t('Satıcı sözleşmelerini onaylamadan ilan verilemez. Sayfayı yenileyip sözleşmeleri onaylayın.') : t('Gönderilemedi: {m}', { m: error.message }), 'err');
+    // Aynı ürün grubunda stoklarımız mevcutsa ilan kabul edilmez. Mesajda fiyat/neden detayı verilmez.
+    if (sonuc === -1) { note.className = 'form-note err'; note.innerHTML = t('Bu ürün grubunda şu anda stoklarımız mevcuttur; ilanınız bu aşamada kabul edilememiştir.') + ' <a target="_blank" rel="noopener" href="' + H.waLink('Merhaba, ilan vermek istediğim ürün grubu hakkında bilgi almak istiyorum.') + '">' + t('Bizimle iletişime geçin') + '</a>'; return; }
+    if (sonuc === -2) { note.className = 'form-note err'; note.textContent = t('Bugün için ilan deneme sınırına ulaştınız. Lütfen bizimle iletişime geçin.'); return; }
     form.reset(); delete form.dataset.pid; $('avail-date-wrap').hidden = true;
     say(note, t('İlanınız alındı. İncelendikten sonra yayınlanacak ve sizinle iletişime geçeceğiz.'), 'ok');
     loadMine();
