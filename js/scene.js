@@ -28,7 +28,7 @@
     kur_ajani: [4.6, 4.1, 2], katalog_ajani: [8.2, 4.1, 2],
     pazarlama_seller: [0.9, 6.9, 2], pazarlama_buyer: [4.6, 6.9, 2], satis_ajani: [8.2, 6.9, 2],
     kesif_ajani: [0.9, 9.5, 2], haber_ajani: [4.6, 9.5, 2], tds_ajani: [8.2, 9.5, 2],
-    pencere_bekcisi: [0.9, 12.1, 2], ilan_takipcisi: [4.6, 12.1, 2]
+    pencere_bekcisi: [0.9, 12.1, 2], ilan_takipcisi: [4.6, 12.1, 2], siparis_takipcisi: [8.2, 12.1, 2]
   };
   const SIRA = Object.keys(YER);
 
