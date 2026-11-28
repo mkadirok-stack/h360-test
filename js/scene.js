@@ -1,7 +1,7 @@
 // Agent Office sahnesi: izometrik (oyun görünümlü) ofis. Her ajan masasında oturan bir karakter; üstünde durum balonu.
 // Salt çizim: veri office.js'ten gelir (durum: ok | warn | bad | off). Karaktere/balona dokunma office.js'te bağlanır (data-a).
 (function () {
-  const TW = 34, TH = 17, Z = 34, OX = 400, OY = 130, GX = 11, GY = 11;
+  const TW = 34, TH = 17, Z = 34, OX = 400, OY = 130, GX = 11, GY = 14;
   const W = 800, H = 540;
   const P = (x, y, z) => [OX + (x - y) * TW, OY + (x + y) * TH - (z || 0) * Z];
   const pt = a => a.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
@@ -27,7 +27,8 @@
     ceo_ajani: [4.3, 1.3, 2.6], raporcu_ajani: [0.9, 4.1, 2],
     kur_ajani: [4.6, 4.1, 2], katalog_ajani: [8.2, 4.1, 2],
     pazarlama_seller: [0.9, 6.9, 2], pazarlama_buyer: [4.6, 6.9, 2], satis_ajani: [8.2, 6.9, 2],
-    kesif_ajani: [0.9, 9.5, 2], haber_ajani: [4.6, 9.5, 2], tds_ajani: [8.2, 9.5, 2]
+    kesif_ajani: [0.9, 9.5, 2], haber_ajani: [4.6, 9.5, 2], tds_ajani: [8.2, 9.5, 2],
+    pencere_bekcisi: [0.9, 12.1, 2], ilan_takipcisi: [4.6, 12.1, 2]
   };
   const SIRA = Object.keys(YER);
 

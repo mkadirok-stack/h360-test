@@ -130,7 +130,10 @@
     ? { incoming: true, cls: 'chip-warn', label: tt('Bağlantılı: {d} tarihinde stoğa girer', { d: new Date(l.expected_date + 'T00:00:00').toLocaleDateString(L) }) }
     : { incoming: false, cls: 'chip-ok', label: tt('Hazır stok') };
   // Favoriler (yalnızca giriş yapmış üyeler; RLS ile herkes kendi satırlarını görür)
-  const effPrice = l => Number(l.campaign_price != null ? l.campaign_price : l.list_price);
+  // Fiyat gizli dönemde (hafta sonu + her gün 17:00-08:00) sunucu fiyat alanlarını boş döndürür.
+  const fiyatYok = l => !l || l.list_price === null || l.list_price === undefined;
+  const fiyatNotu = () => tt('Fiyatlar hafta içi 08:00–17:00 arasında görüntülenir. Stok bilgisi her zaman görünür.');
+  const effPrice = l => fiyatYok(l) ? null : Number(l.campaign_price != null ? l.campaign_price : l.list_price);
   let favSet = null;
   async function loadFavs() {
     if (favSet) return favSet;
@@ -149,5 +152,5 @@
     if (error) return null; favs.add(l.id); return true;
   }
   const favBtn = (l, on) => '<button type="button" class="fav-btn' + (on ? ' on' : '') + '" data-fav="' + l.id + '" aria-pressed="' + !!on + '" title="' + tt(on ? 'Favorilerden çıkar' : 'Favorilere ekle') + '">' + (on ? '★' : '☆') + '</button>';
-  window.H = { sb, cfg, esc, money, tl, waLink, dateTR, getProfile, init, stock, loadFavs, toggleFav, favBtn, effPrice, fx: null };
+  window.H = { sb, cfg, esc, money, tl, waLink, dateTR, getProfile, init, stock, loadFavs, toggleFav, favBtn, effPrice, fiyatYok, fiyatNotu, fx: null };
 })();
