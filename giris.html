@@ -31,6 +31,8 @@
         <legend>Üyelik türü</legend>
         <label class="radio"><input type="radio" name="role" value="buyer" checked> <span><b>Alıcı</b><small>Hammadde arıyorum</small></span></label>
         <label class="radio"><input type="radio" name="role" value="seller"> <span><b>Satıcı</b><small>Elimdeki malı satmak istiyorum</small></span></label>
+        <label class="radio"><input type="radio" name="role" value="both"> <span><b>Alıcı + Satıcı</b><small>Hem alım hem satım yapacağım</small></span></label>
+        <p class="hint">Hangisini seçerseniz seçin, aynı hesapla hem alım hem satım yapabilirsiniz.</p>
       </fieldset>
       <div class="row">
         <label>Ad Soyad<input name="full_name" required autocomplete="name"></label>
@@ -78,7 +80,7 @@
   if (new URLSearchParams(location.search).get('mod') === 'uye') showTab('signup');
 
   signupForm.addEventListener('change', e => {
-    if (e.target.name === 'role') $('#interests-label').textContent = t(e.target.value === 'seller' ? 'Sattığınız ürün grupları' : 'İlgilendiğiniz ürün grupları');
+    if (e.target.name === 'role') $('#interests-label').textContent = t(e.target.value === 'seller' ? 'Sattığınız ürün grupları' : e.target.value === 'both' ? 'Alım/satım yaptığınız ürün grupları' : 'İlgilendiğiniz ürün grupları');
   });
 
   const say = (el, msg, cls) => { el.textContent = msg; el.className = 'form-note ' + (cls || ''); };

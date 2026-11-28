@@ -167,19 +167,19 @@
     });
   }
   function accCell(p) {
-    if (p.role !== 'seller') return '';
+    if (!['seller', 'buyer', 'both'].includes(p.role)) return '';
     if (!accState || !accState.docs.length) return '—';
     const mine = accState.by[p.id] || {}, ok = accState.docs.every(d => mine[d.key + '|' + d.version]);
-    return ok ? '<span title="Güncel sürüm onaylı">✓ onaylı</span>' : '<b style="color:#c0392b">✗ onaysız</b>';
+    return ok ? '<span title="Güncel sürüm onaylı">✓ onaylı</span>' : (p.role !== 'buyer' ? '<b style="color:#c0392b">✗ onaysız</b>' : '—');
   }
 
   function renderMembers() {
     loadAcc();
     const rows = filteredMembers();
-    const ROLE = { buyer: 'Alıcı', seller: 'Satıcı', admin: 'Yönetici' };
+    const ROLE = { buyer: 'Alıcı', seller: 'Satıcı', both: 'Alıcı+Satıcı', admin: 'Yönetici' };
     view.innerHTML =
       '<div class="filters"><input id="mq" type="search" placeholder="Ara: ad, firma, e-posta..." value="' + esc(mf.q) + '">' +
-      '<select id="mrole"><option value="">Tüm türler</option><option value="buyer">Alıcı</option><option value="seller">Satıcı</option></select>' +
+      '<select id="mrole"><option value="">Tüm türler</option><option value="buyer">Alıcı</option><option value="seller">Satıcı</option><option value="both">Alıcı+Satıcı</option></select>' +
       '<select id="mcons"><option value="">Mail izni: hepsi</option><option value="true">Mail izni verenler</option><option value="false">İzin vermeyenler</option></select>' +
       '<button class="btn btn-sm" id="csv" type="button">CSV indir (' + rows.length + ')</button></div>' +
       '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Tür</th><th>Ad Soyad</th><th>Firma</th><th>E-posta</th><th>Telefon</th><th>Şehir</th><th>İlgi</th><th>Mail izni</th><th>Satıcı sözleşmesi</th></tr></thead><tbody>' +
@@ -413,7 +413,7 @@
     if (agSel === 'ceo_ajani') return renderCeo(chips);
     if (agSel === 'overview') {
       const aday = prospects.length, davet = prospects.filter(x => x.send_count > 0).length, uyeOlan = prospects.filter(x => x.status === 'registered').length;
-      const saticiUye = members.filter(x => x.role === 'seller').length, aliciUye = members.filter(x => x.role === 'buyer').length;
+      const saticiUye = members.filter(x => x.role === 'seller' || x.role === 'both').length, aliciUye = members.filter(x => x.role === 'buyer' || x.role === 'both').length;
       const yayinda = listings.filter(x => x.status === 'published').length, bekleyen = listings.filter(x => x.status === 'pending').length;
       const sorun = AGENTS.filter(a => ['red', 'yellow'].includes(agentStatus(a[0])[0])).length;
       view.innerHTML = chips +

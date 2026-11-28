@@ -109,7 +109,7 @@
 <script>
 (async () => {
   const { sb, esc, money, dateTR } = H;
-  const me = await H.init({ require: ['buyer', 'seller', 'admin'] });
+  const me = await H.init({ require: ['buyer', 'seller', 'both', 'admin'] });
   if (!me) return;
 
   const $ = id => document.getElementById(id);

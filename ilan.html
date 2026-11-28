@@ -88,7 +88,7 @@
   $('calc-n').addEventListener('input', calc); calc();
   box.insertAdjacentHTML('beforeend', '<p class="hint">' + t('Fiyatlar depo teslimdir (ürünün bulunduğu şehirde). Nakliye dahil fiyat için bizimle iletişime geçebilirsiniz.') + ' <a target="_blank" rel="noopener" href="' + waLink(t('Merhaba, #{id} numaralı "{title}" ilanı için adresime teslim (nakliye dahil) fiyat almak istiyorum.', { id: l.id, title: l.title })) + '">' + t('Adrese teslim fiyatı iste') + '</a></p>');
   // ---- Sipariş ver: proforma otomatik hazırlanıp e-postayla gönderilir; imzalı belge yüklenince sipariş kesinleşir
-  if (me.role === 'buyer' || me.role === 'admin') {
+  if (['buyer', 'seller', 'both', 'admin'].includes(me.role)) {
     box.insertAdjacentHTML('beforeend', '<div class="card" id="order-box"><h3>Sipariş ver</h3>' +
       '<p class="hint">Yukarıdaki palet sayısıyla sipariş verirseniz proformanız hemen hazırlanıp e-posta adresinize gönderilir. Kaşeli ve imzalı proformayı yüklediğinizde sipariş kesinleşir ve ödeme bilgileri açılır. Stok, sipariş onayında teyide tabidir.</p>' +
       '<form id="order-form" class="form" novalidate>' +

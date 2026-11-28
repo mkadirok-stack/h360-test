@@ -27,7 +27,7 @@
 <script>
 (async () => {
   const { sb, esc, money, dateTR } = H;
-  const me = await H.init({ require: ['buyer', 'admin'] });
+  const me = await H.init({ require: ['buyer', 'seller', 'both', 'admin'] });
   if (!me) return;
   const box = document.getElementById('orders');
   const ST = {
