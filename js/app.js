@@ -116,6 +116,8 @@
     const [p, fx] = await Promise.all([getProfile(), loadFx()]);
     H.fx = fx;
     renderHeader(p, fx);
+    if (musteriUygulamasi) document.documentElement.classList.add('in-app');
+    musteriPush(p);
     if (opts.require) {
       if (!p) { gate('Bu sayfayı görmek için giriş yapmanız gerekiyor.', 'giris.html', 'Giriş / Üye Ol'); return null; }
       if (Array.isArray(opts.require) && !opts.require.includes(p.role)) {
@@ -124,6 +126,32 @@
       if (opts.mfa && p.role === 'admin' && !(await mfaStep())) return null;
     }
     return p;
+  }
+
+  // Müşteri mobil uygulaması (Android, siteyi sarar): kullanıcı ajanında "H360Musteri" bulunur; Firebase'li sürümde sonunda " push" yazar.
+  // Uygulama içindeyken telefon bildirimi için cihaz kaydı yapılır (yalnızca alıcı/satıcı). Uygulama dışında hiçbir şey yapmaz.
+  const musteriUygulamasi = /H360Musteri/.test(navigator.userAgent);
+  let musteriPushHazir = false;
+  async function musteriPush(p) {
+    try {
+      if (!musteriUygulamasi || !/H360Musteri\S* push/.test(navigator.userAgent) || !p || !(p.role === 'buyer' || p.role === 'seller')) return;
+      const PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+      if (!PN) return;
+      let izin = await PN.checkPermissions();
+      if (izin.receive === 'prompt' || izin.receive === 'prompt-with-rationale') izin = await PN.requestPermissions();
+      if (izin.receive !== 'granted') return;
+      if (!musteriPushHazir) {
+        musteriPushHazir = true;
+        PN.addListener('registration', async t => { await sb.rpc('push_register_customer', { p_token: t.value, p_platform: 'android' }); });
+        PN.addListener('pushNotificationReceived', n => {
+          const el = document.createElement('div');
+          el.style.cssText = 'position:fixed;top:8px;left:8px;right:8px;z-index:99999;background:#0b2540;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);font-size:14px';
+          el.innerHTML = '<b>' + esc(n.title || 'Hammadde360') + '</b><br>' + esc(n.body || '');
+          document.body.appendChild(el); setTimeout(() => { try { el.remove(); } catch (e) {} }, 8000);
+        });
+      }
+      await PN.register();
+    } catch (e) { /* bildirim olmasa da uygulama çalışır */ }
   }
 
   // Stok durumu: ready = hazır stok, incoming = bağlantılı (beklenen tarihte stoğa girer)
