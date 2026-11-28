@@ -37,8 +37,8 @@
   function renderHeader(p, fx) {
     const links = [['index.html', 'Ana Sayfa'], ['ilanlar.html', 'İlanlar'], ['haberler.html', 'Haberler'], ['nasil-calisir.html', 'Nasıl Çalışır']];
     if (p) links.push(['favorilerim.html', 'Favorilerim']);
-    if (p && (p.role === 'buyer' || p.role === 'seller' || p.role === 'admin')) links.push(['siparislerim.html', 'Siparişlerim']);
-    if (p && (p.role === 'buyer' || p.role === 'seller' || p.role === 'admin')) links.push(['ilan-ver.html', 'İlan Ver']);
+    if (p && ['buyer', 'seller', 'both', 'admin'].includes(p.role)) links.push(['siparislerim.html', 'Siparişlerim']);
+    if (p && ['buyer', 'seller', 'both', 'admin'].includes(p.role)) links.push(['ilan-ver.html', 'İlan Ver']);
     if (p && p.role === 'admin') links.push(['admin.html', 'Yönetim']);
     const auth = p
       ? '<span class="who">' + esc(p.full_name || p.email) + '</span><button class="btn btn-sm" id="logout" type="button">Çıkış</button>'
@@ -134,7 +134,7 @@
   let musteriPushHazir = false;
   async function musteriPush(p) {
     try {
-      if (!musteriUygulamasi || !/H360Musteri\S* push/.test(navigator.userAgent) || !p || !(p.role === 'buyer' || p.role === 'seller')) return;
+      if (!musteriUygulamasi || !/H360Musteri\S* push/.test(navigator.userAgent) || !p || !['buyer', 'seller', 'both'].includes(p.role)) return;
       const PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
       if (!PN) return;
       let izin = await PN.checkPermissions();
