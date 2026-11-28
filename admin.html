@@ -494,6 +494,8 @@
   }
 
   // ---- Ofis sahnesi (izometrik) ve CEO sohbeti
+  STAFF.ajanVeri = async k => { const r = await sb.from('agent_events').select('created_at,level,message').eq('agent', k).order('created_at', { ascending: false }).limit(40); return r.error ? null : { events: r.data || [] }; };
+  STAFF.ajanAc = k => { agSel = k; render(); };
   function renderOffice(chips) {
     const dm = {}, adlar = {}, harita = { green: 'ok', yellow: 'warn', red: 'bad', grey: 'off' };
     AGENTS.forEach(a => { dm[a[0]] = harita[agentStatus(a[0])[0]]; adlar[a[0]] = a[1]; });
