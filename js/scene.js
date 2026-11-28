@@ -331,13 +331,16 @@
     const yeniAnahtar = new Set();
     l.textContent = '';
     if (!liste.length) { const b = document.createElement('div'); b.className = 's2pb'; b.textContent = D.pYuklendi ? 'Henüz kayıtlı işlem yok.' : 'Yükleniyor...'; l.appendChild(b); }
-    liste.forEach(e => {
-      const key = e.created_at + '|' + e.message, el = document.createElement('div');
-      el.className = 's2pe' + (D.pYuklendi && !D.pGor.has(key) ? ' yeni' : '');
+    // art arda aynı mesajlar tek satırda birleşir ("× 14"): ajan her turda aynı şeyi yazıyorsa liste gürültüye boğulmasın
+    const gruplar = [];
+    liste.forEach(e => { const g = gruplar[gruplar.length - 1]; if (g && g.e.message === e.message && g.e.level === e.level) { g.n++; g.yeniMi = g.yeniMi || (D.pYuklendi && !D.pGor.has(e.created_at + '|' + e.message)); } else gruplar.push({ e: e, n: 1, yeniMi: D.pYuklendi && !D.pGor.has(e.created_at + '|' + e.message) }); yeniAnahtar.add(e.created_at + '|' + e.message); });
+    gruplar.forEach(g => {
+      const e = g.e, el = document.createElement('div');
+      el.className = 's2pe' + (g.yeniMi ? ' yeni' : '');
       const dot = document.createElement('i'); dot.style.background = SEV[e.level] || SEV.info;
       const tm = document.createElement('time'); tm.textContent = zamanYaz(e.created_at);
-      const sp = document.createElement('span'); sp.textContent = e.message;
-      el.appendChild(dot); el.appendChild(tm); el.appendChild(sp); l.appendChild(el); yeniAnahtar.add(key);
+      const sp = document.createElement('span'); sp.textContent = e.message + (g.n > 1 ? '  × ' + g.n : '');
+      el.appendChild(dot); el.appendChild(tm); el.appendChild(sp); l.appendChild(el);
     });
     yeniAnahtar.forEach(k => D.pGor.add(k));
     p.querySelector('.s2pc').textContent = 'canlı · 7 saniyede bir yenilenir';
