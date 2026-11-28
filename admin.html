@@ -33,12 +33,12 @@
   const $ = s => document.querySelector(s);
   const view = $('#view'), tabsEl = $('#tabs'), msg = $('#msg');
   const say = (m, c) => { msg.textContent = m || ''; msg.className = 'form-note ' + (c || ''); };
-  let listings = [], categories = [], members = [], tab = 'agents';
+  let listings = [], categories = [], members = [], ordersL = [], tab = 'agents';
   const mf = { role: '', consent: '', q: '' };
   let prospects = [], mailLog = [];
   let requests = [], sectorsL = [], materialsL = [], brandsL = [], productsL = [];
 
-  const TABS = [['agents', 'Ajan Ofisi'], ['pending', 'Bekleyen'], ['published', 'Yayında'], ['rejected', 'Reddedilen'], ['members', 'Üyeler'], ['catalog', 'Katalog'], ['marketing', 'Pazarlama'], ['prices', 'Fiyat Duyuruları'], ['news', 'Haberler'], ['stats', 'İstatistik']];
+  const TABS = [['agents', 'Ajan Ofisi'], ['pending', 'Bekleyen'], ['published', 'Yayında'], ['rejected', 'Reddedilen'], ['orders', 'Siparişler'], ['members', 'Üyeler'], ['catalog', 'Katalog'], ['marketing', 'Pazarlama'], ['prices', 'Fiyat Duyuruları'], ['news', 'Haberler'], ['stats', 'İstatistik']];
   const num = v => (v === '' || v === null || v === undefined) ? null : Number(v);
   const listOf = (sp, m) => Math.round(sp * (1 + m / 100) * 100) / 100;
 
@@ -55,12 +55,40 @@
     await loadAgents();
     await loadNews();
     await loadPrices();
+    await loadOrders();
     render();
   }
 
+  // ---------- SİPARİŞLER (proforma + imzalı belge + ödeme takibi)
+  const OST = { proforma_pending: 'Proforma hazırlanıyor', proforma_sent: 'Proforma gönderildi', signed_uploaded: 'İmzalı belge geldi — ödeme bekleniyor', paid: 'Ödendi', cancelled: 'İptal', expired: 'Süresi doldu' };
+  async function loadOrders() {
+    const r = await sb.from('orders').select('*, buyer:profiles(full_name,company,email,phone)').order('created_at', { ascending: false }).limit(200);
+    ordersL = r.error ? [] : r.data;
+  }
+  async function renderOrders() {
+    if (!ordersL.length) { view.innerHTML = '<p class="sub">Henüz sipariş yok.</p>'; return; }
+    const rows = await Promise.all(ordersL.map(async o => {
+      let belge = '';
+      if (o.signed_path) { const sg = await sb.storage.from('order-docs').createSignedUrl(o.signed_path, 3600); if (sg.data) belge = '<a target="_blank" rel="noopener" href="' + esc(sg.data.signedUrl) + '">İmzalı belge</a>'; }
+      if (o.proforma_path) { const sg = await sb.storage.from('order-docs').createSignedUrl(o.proforma_path, 3600); if (sg.data) belge += ' <a target="_blank" rel="noopener" href="' + esc(sg.data.signedUrl) + '">Proforma</a>'; }
+      const act = ['signed_uploaded', 'proforma_sent'].includes(o.status) ? '<button class="btn btn-sm" data-ord="paid" data-id="' + o.id + '" type="button">Ödendi</button> ' : '';
+      const iptal = ['proforma_pending', 'proforma_sent', 'signed_uploaded'].includes(o.status) ? '<button class="btn btn-sm btn-dark" data-ord="cancelled" data-id="' + o.id + '" type="button">İptal</button>' : '';
+      const b = o.buyer || {};
+      return '<tr><td>' + dateTR(o.created_at) + '</td><td><b>' + esc(o.proforma_no) + '</b><br><small>' + esc(OST[o.status] || o.status) + '</small></td><td>' + esc(o.buyer_company || b.company) + '<br><small>' + esc(o.buyer_tax) + ' · ' + esc(b.email || '') + ' · ' + esc(b.phone || '') + '</small></td><td>' + esc(o.title) + '<br><small>' + o.pallets + ' palet · ' + esc(o.quantity) + ' ' + esc(o.unit) + '</small></td><td>' + money(o.total) + '</td><td>' + belge + '</td><td>' + act + iptal + '</td></tr>';
+    }));
+    view.innerHTML = '<div class="tablewrap"><table class="table"><thead><tr><th>Tarih</th><th>Proforma</th><th>Alıcı</th><th>Ürün</th><th>Toplam (KDV dahil)</th><th>Belge</th><th>İşlem</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
+  }
+  view.addEventListener('click', async e => {
+    const b = e.target.closest('[data-ord]'); if (!b) return;
+    b.disabled = true;
+    const r = await sb.rpc('admin_order_set_status', { p_id: Number(b.dataset.id), p_status: b.dataset.ord });
+    if (r.error) { say(r.error.message, 'err'); b.disabled = false; return; }
+    await loadOrders(); render();
+  });
+
   function renderTabs() {
     tabsEl.innerHTML = TABS.map(([k, n]) => {
-      const cnt = k === 'members' ? members.length : k === 'news' ? newsL.length : k === 'prices' ? priceL.length : k === 'marketing' ? prospects.filter(x => ['unreachable', 'bounced'].includes(x.status)).length : k === 'catalog' ? requests.filter(r => ['pending', 'needs_confirmation', 'confirmed_different'].includes(r.status)).length : listings.filter(x => x.status === k).length;
+      const cnt = k === 'orders' ? ordersL.filter(o => ['proforma_pending', 'proforma_sent', 'signed_uploaded'].includes(o.status)).length : k === 'members' ? members.length : k === 'news' ? newsL.length : k === 'prices' ? priceL.length : k === 'marketing' ? prospects.filter(x => ['unreachable', 'bounced'].includes(x.status)).length : k === 'catalog' ? requests.filter(r => ['pending', 'needs_confirmation', 'confirmed_different'].includes(r.status)).length : listings.filter(x => x.status === k).length;
       return '<button class="tab' + (k === tab ? ' active' : '') + '" data-tab="' + k + '" type="button">' + n + (k === 'agents' || k === 'stats' ? '' : ' (' + cnt + ')') + '</button>';
     }).join('');
   }
@@ -163,7 +191,7 @@
 
   function render() {
     renderTabs();
-    tab === 'agents' ? renderAgents() : tab === 'stats' ? renderStats() : tab === 'prices' ? renderPrices() : tab === 'news' ? renderNews() : tab === 'members' ? renderMembers() : tab === 'catalog' ? renderCatalog() : tab === 'marketing' ? renderMarketing() : renderListings();
+    tab === 'agents' ? renderAgents() : tab === 'orders' ? renderOrders() : tab === 'stats' ? renderStats() : tab === 'prices' ? renderPrices() : tab === 'news' ? renderNews() : tab === 'members' ? renderMembers() : tab === 'catalog' ? renderCatalog() : tab === 'marketing' ? renderMarketing() : renderListings();
   }
 
   function exportCSV() {
@@ -323,6 +351,7 @@
     ['tds_ajani', 'TDS Ajanı', 'Kataloğa eklenen ürünlerin TDS (teknik veri sayfası) PDF bağlantısını üreticinin sitesinden bulur, doğrular ve ürüne bağlar. Müşteri uğraşmaz; marka sitesi tanımlı olmalıdır.', 'Her 15 dk (08:00-22:00), ürün başına 14 günde bir'],
     ['pencere_bekcisi', 'Pencere Bekçisi', 'İlan değişiklik penceresinin (hafta içi 08:00-17:00 kilitli; 17:00-08:00 ve Cuma 17:00-Pazartesi 08:00 açık) ve fiyat gizlemenin doğru işlediğini doğrular; uyumsuzlukta telefona uyarı gönderir. Yalnızca okur.', 'Her dakika'],
     ['ilan_takipcisi', 'İlan Takipçisi', 'Satıcıların ilan kaldırma ve fiyat revizelerini izler; büyük fiyat değişiminde (±%15) uyarır; sabah saat 07:30 itibarıyla gece değişikliklerinin özetini gönderir. Yalnızca okur.', 'Her 5 dk · özet 07:30'],
+    ['siparis_takipcisi', 'Sipariş Takipçisi', 'Yeni siparişte proforma PDF dosyasını üretip alıcıya mail atar; süresi dolanları kapatır, bitmeden hatırlatır; imzalı belge gelince ve ödeme gecikince ofise bildirir. Ödendi işaretini insan koyar.', 'Her dakika'],
     ['raporcu_ajani', 'Raporcu', 'Günlük özet raporu (18:00) gönderir; sessiz kalan ajanı yakalar ve uyarır; eski kayıtları temizler.', 'Her 5 dk · özet 18:00']
   ];
   let newsL = [];

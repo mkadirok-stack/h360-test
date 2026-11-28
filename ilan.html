@@ -87,6 +87,31 @@
   };
   $('calc-n').addEventListener('input', calc); calc();
   box.insertAdjacentHTML('beforeend', '<p class="hint">' + t('Fiyatlar depo teslimdir (ürünün bulunduğu şehirde). Nakliye dahil fiyat için bizimle iletişime geçebilirsiniz.') + ' <a target="_blank" rel="noopener" href="' + waLink(t('Merhaba, #{id} numaralı "{title}" ilanı için adresime teslim (nakliye dahil) fiyat almak istiyorum.', { id: l.id, title: l.title })) + '">' + t('Adrese teslim fiyatı iste') + '</a></p>');
+  // ---- Sipariş ver: proforma otomatik hazırlanıp e-postayla gönderilir; imzalı belge yüklenince sipariş kesinleşir
+  if (me.role === 'buyer' || me.role === 'admin') {
+    box.insertAdjacentHTML('beforeend', '<div class="card" id="order-box"><h3>Sipariş ver</h3>' +
+      '<p class="hint">Yukarıdaki palet sayısıyla sipariş verirseniz proformanız hemen hazırlanıp e-posta adresinize gönderilir. Kaşeli ve imzalı proformayı yüklediğinizde sipariş kesinleşir ve ödeme bilgileri açılır. Stok, sipariş onayında teyide tabidir.</p>' +
+      '<form id="order-form" class="form" novalidate>' +
+      '<label>Unvan<input name="company" required value="' + esc(me.company || '') + '"></label>' +
+      '<label>Vergi dairesi / vergi no<input name="tax" required></label>' +
+      '<label>Fatura adresi<textarea name="address" rows="2" required></textarea></label>' +
+      '<label>Yetkili / telefon<input name="contact" value="' + esc([me.full_name, me.phone].filter(Boolean).join(' / ')) + '"></label>' +
+      '<button class="btn" type="submit">Sipariş ver, proformayı gönder</button><p class="form-note" id="order-note" role="status"></p></form></div>');
+    $('order-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const f = e.target.elements, note = $('order-note'), btn = e.target.querySelector('button');
+      const n = Math.floor(Number($('calc-n').value) || 1);
+      if (!f.company.value.trim() || !f.tax.value.trim() || !f.address.value.trim()) { note.className = 'form-note err'; note.textContent = 'Unvan, vergi dairesi/no ve adres zorunludur.'; return; }
+      btn.disabled = true; note.className = 'form-note'; note.textContent = 'Gönderiliyor...';
+      const r = await sb.rpc('order_create', { p_listing_id: l.id, p_pallets: n, p_company: f.company.value, p_tax: f.tax.value, p_address: f.address.value, p_contact: f.contact.value });
+      btn.disabled = false;
+      if (r.error) { note.className = 'form-note err'; note.textContent = /KAPALI_FIYAT/.test(r.error.message) ? 'Fiyatlar şu an gizli olduğu için sipariş verilemez. Hafta içi 08:00–17:00 arasında tekrar deneyin.' : r.error.message; return; }
+      note.className = 'form-note ok';
+      note.innerHTML = 'Siparişiniz alındı (' + esc(r.data.proforma_no) + '). Proformanız e-postanıza gönderilecek. <a href="siparislerim.html">Siparişlerim</a>';
+    });
+  } else {
+    box.insertAdjacentHTML('beforeend', '<p class="hint">Sipariş vermek için alıcı hesabıyla giriş yapmanız gerekir.</p>');
+  }
   }
   const favOn = (await H.loadFavs()).has(l.id);
   box.insertAdjacentHTML('beforeend', '<p><button type="button" class="btn btn-sm" id="favbtn">' + (favOn ? '★ ' + t('Favorilerden çıkar') : '☆ ' + t('Favorilere ekle')) + '</button></p>');
