@@ -42,6 +42,12 @@
       '.s2b .m{display:block;font:700 11px system-ui,sans-serif;color:#2a1c10;overflow:hidden;text-overflow:ellipsis;max-width:176px;margin-top:2px}' +
       '.s2b .a{display:block;font:600 9.5px system-ui,sans-serif;color:#7a6650}' +
       '.s2b.work .c{background:#3b6fd8}.s2b.idle .c{background:#8a8a99}.s2b.arrive .c{background:#1a9a52}.s2b.ship .c{background:#16a34a}.s2b.warn .c{background:#d98a00}.s2b.bad .c{background:#d63b2b}.s2b.off .c{background:#5a5170}' +
+      '.s2p{position:absolute;top:0;right:0;bottom:0;width:min(330px,90%);background:#fff8ea;border-left:3px solid #6b4b2a;box-shadow:-4px 0 14px rgba(0,0,0,.4);display:flex;flex-direction:column;z-index:6;font-family:system-ui,sans-serif;color:#2a1c10}' +
+      '.s2ph{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:10px 10px 6px;border-bottom:2px solid #e2d3b8}.s2pn{display:block;font-size:15px}.s2ps{display:inline-block;margin-top:3px;font:800 9px system-ui,sans-serif;letter-spacing:.06em;padding:2px 7px;border-radius:5px;color:#fff;background:#64748b}' +
+      '.s2px{min-width:32px;min-height:32px;border:2px solid #6b4b2a;background:#fff;border-radius:8px;font:800 18px system-ui,sans-serif;line-height:1;padding:0}.s2pm{padding:6px 10px;font-size:12px;color:#5a4630;border-bottom:1px solid #eadfca}' +
+      '.s2pl{flex:1;overflow:auto;padding:4px 8px;-webkit-overflow-scrolling:touch}.s2pe{display:flex;gap:7px;padding:5px 2px;border-bottom:1px dashed #e2d3b8;font-size:12px;line-height:1.35}.s2pe i{flex:0 0 8px;height:8px;border-radius:50%;margin-top:5px}.s2pe time{flex:0 0 auto;color:#8a7458;font-size:10.5px;min-width:46px;margin-top:1px}.s2pe span{flex:1;word-break:break-word}' +
+      '@keyframes s2yeni{0%{background:#fde68a}100%{background:transparent}}.s2pe.yeni{animation:s2yeni 3.5s ease-out}.s2pb{padding:18px 6px;text-align:center;font-size:12px;color:#8a7458}' +
+      '.s2pf{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-top:2px solid #e2d3b8}.s2pd{border:2px solid #6b4b2a;background:#f59e0b;color:#2a1c10;font:800 12px system-ui,sans-serif;border-radius:8px;padding:6px 12px;min-height:0}.s2pc{font-size:10.5px;color:#8a7458}' +
       '.s2b.mini{padding:1px 6px 2px;border-width:1.5px;border-radius:6px;opacity:.9}.s2b.mini .m,.s2b.mini .c{display:none}.s2b.mini .a{font:700 10px system-ui,sans-serif;color:#2a1c10}.s2b.mini::after{bottom:-6px;border-width:4px;margin-left:-4px}.s2b.mini.off{background:#ddd5ea;border-color:#5a5170}.s2b.mini.off .a{color:#5a5170}.s2b.mini.off .a::before{content:"zZ ";font-weight:800}';
     document.head.appendChild(st);
   }
@@ -303,6 +309,57 @@
     const bal = SIRA.map(k => '<button class="s2b off mini" data-a="' + k + '" data-s="" data-m=""></button>').join('');
     return '<div class="scene2" id="scene"><canvas id="s2cv" height="420" aria-label="Ajan ofisi"></canvas>' + hud + '<div class="s2lay">' + bal + '</div>' + ctl + '</div>';
   };
+  // ---------------- yan panel: seçilen ajanın yaptığı işlemler (canlı akar)
+  const SEV = { ok: '#16a34a', warn: '#d98a00', error: '#d63b2b', info: '#8a8a99' };
+  const CHIP = { work: '#3b6fd8', idle: '#8a8a99', arrive: '#1a9a52', ship: '#16a34a', warn: '#d98a00', bad: '#d63b2b', off: '#5a5170' };
+  function zamanYaz(d) { const x = new Date(d), bugun = new Date(); return x.toDateString() === bugun.toDateString() ? x.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : x.toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  function panelCiz(wrap) {
+    let p = wrap.querySelector('.s2p');
+    if (!D.pk) { if (p) p.remove(); return; }
+    if (!p) {
+      p = document.createElement('div'); p.className = 's2p';
+      p.innerHTML = '<div class="s2ph"><div><b class="s2pn"></b><span class="s2ps"></span></div><button type="button" class="s2px" aria-label="Kapat">×</button></div><div class="s2pm"></div><div class="s2pl"></div><div class="s2pf"><button type="button" class="s2pd">Ayrıntı →</button><span class="s2pc"></span></div>';
+      wrap.appendChild(p);
+      p.querySelector('.s2px').onclick = () => { D.pk = null; clearInterval(D.pTimer); D.pTimer = 0; p.remove(); };
+      p.querySelector('.s2pd').onclick = () => { if (S.ajanAc) S.ajanAc(D.pk); };
+    }
+    const [s, m] = durumMetni(D.pk, performance.now());
+    p.querySelector('.s2pn').textContent = D.adlar[D.pk] || D.pk;
+    const st = p.querySelector('.s2ps'); st.textContent = DURUM_AD[s]; st.style.background = CHIP[s] || '#64748b';
+    p.querySelector('.s2pm').textContent = m;
+    const l = p.querySelector('.s2pl'), liste = D.pEv || [];
+    const yeniAnahtar = new Set();
+    l.textContent = '';
+    if (!liste.length) { const b = document.createElement('div'); b.className = 's2pb'; b.textContent = D.pYuklendi ? 'Henüz kayıtlı işlem yok.' : 'Yükleniyor...'; l.appendChild(b); }
+    liste.forEach(e => {
+      const key = e.created_at + '|' + e.message, el = document.createElement('div');
+      el.className = 's2pe' + (D.pYuklendi && !D.pGor.has(key) ? ' yeni' : '');
+      const dot = document.createElement('i'); dot.style.background = SEV[e.level] || SEV.info;
+      const tm = document.createElement('time'); tm.textContent = zamanYaz(e.created_at);
+      const sp = document.createElement('span'); sp.textContent = e.message;
+      el.appendChild(dot); el.appendChild(tm); el.appendChild(sp); l.appendChild(el); yeniAnahtar.add(key);
+    });
+    yeniAnahtar.forEach(k => D.pGor.add(k));
+    p.querySelector('.s2pc').textContent = 'canlı · 7 saniyede bir yenilenir';
+  }
+  async function panelYukle() {
+    if (!D.cv || !D.cv.isConnected || !D.pk || !S.ajanVeri) { clearInterval(D.pTimer); D.pTimer = 0; return; }
+    try {
+      const v = await S.ajanVeri(D.pk);
+      if (v) {
+        D.pEv = (v.events || []).slice(0, 40);
+        if (!D.pYuklendi) D.pEv.forEach(e => D.pGor.add(e.created_at + '|' + e.message));   // ilk listede vurgulama yok; sonradan gelenler yanar
+        D.pYuklendi = true;
+      }
+    } catch (e) { /* ağ hatasında eski liste kalır */ }
+    if (D.cv && D.cv.isConnected) panelCiz(D.cv.parentNode);
+  }
+  function panelAc(k) {
+    if (D.pk !== k) { D.pk = k; D.pEv = []; D.pGor = new Set(); D.pYuklendi = false; }
+    panelCiz(D.cv.parentNode); panelYukle();
+    clearInterval(D.pTimer); D.pTimer = setInterval(panelYukle, 7000);
+  }
+
   // XP -> seviye (iş büyüdükçe artar: görev, sipariş, ilan, üye). veri: {xp:sayı}
   const BASLIK = ['Çırak', 'Tezgâhtar', 'Tüccar', 'Broker', 'Baş Broker', 'Ticaret Ustası', 'Hammadde Baronu'];
   S.xpHesap = function (v) {
@@ -331,6 +388,9 @@
       if (en) { const bt = wrap.querySelector('.s2b[data-a="' + en + '"]'); if (bt) bt.click(); }
     };
     cv.onwheel = e => { e.preventDefault(); D.kul = Math.max(0.55, Math.min(2.4, D.kul * (e.deltaY < 0 ? 1.1 : 0.9))); };
+    // balona/karaktere tıklayınca ajanın sayfasına gitmek yerine yan panel açılır (Ayrıntı düğmesi sayfaya götürür)
+    wrap.addEventListener('click', e => { const b = e.target.closest('.s2b'); if (!b || !S.ajanVeri) return; e.stopPropagation(); e.preventDefault(); panelAc(b.dataset.a); }, true);
+    if (D.pk) { panelCiz(wrap); if (!D.pTimer) D.pTimer = setInterval(panelYukle, 7000); }   // sayfa yenilense de panel açık kalır
     if (!D.raf) D.raf = requestAnimationFrame(dongu);
   };
 })();
