@@ -161,7 +161,7 @@
   // Favoriler (yalnızca giriş yapmış üyeler; RLS ile herkes kendi satırlarını görür)
   // Fiyat gizli dönemde (hafta sonu + her gün 17:00-08:00) sunucu fiyat alanlarını boş döndürür.
   const fiyatYok = l => !l || l.list_price === null || l.list_price === undefined;
-  const fiyatNotu = () => tt('Fiyatlar hafta içi 08:00–17:00 arasında görüntülenir. Stok bilgisi her zaman görünür.');
+  const fiyatNotu = () => tt('Fiyatlar hafta içi 08:00–17:00 arasında görüntülenir.');
   const effPrice = l => fiyatYok(l) ? null : Number(l.campaign_price != null ? l.campaign_price : l.list_price);
   let favSet = null;
   async function loadFavs() {
