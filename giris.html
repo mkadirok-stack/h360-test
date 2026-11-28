@@ -40,7 +40,7 @@
       </div>
       <div class="row">
         <label>Telefon<input name="phone" type="tel" required autocomplete="tel"></label>
-        <label>Şehir<input name="city" autocomplete="address-level1"></label>
+        <label>Şehir<select name="city" id="city-sel" required autocomplete="address-level1"><option value="">Seçiniz</option></select></label>
       </div>
       <fieldset class="interests">
         <legend id="interests-label">İlgilendiğiniz ürün grupları</legend>
@@ -67,6 +67,12 @@
 (async () => {
   const { sb } = H;
   const me = await H.init();
+  // Şehir: serbest yazı yerine liste (81 il; İstanbul iki yaka; yurt dışı)
+  const ILLER = ['Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Aksaray', 'Amasya', 'Ankara', 'Antalya', 'Ardahan', 'Artvin', 'Aydın', 'Balıkesir', 'Bartın', 'Batman', 'Bayburt', 'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa',
+    'Çanakkale', 'Çankırı', 'Çorum', 'Denizli', 'Diyarbakır', 'Düzce', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkâri', 'Hatay', 'Iğdır', 'Isparta', 'İstanbul (Anadolu)', 'İstanbul (Avrupa)', 'İzmir',
+    'Kahramanmaraş', 'Karabük', 'Karaman', 'Kars', 'Kastamonu', 'Kayseri', 'Kilis', 'Kırıkkale', 'Kırklareli', 'Kırşehir', 'Kocaeli', 'Konya', 'Kütahya', 'Malatya', 'Manisa', 'Mardin', 'Mersin', 'Muğla', 'Muş', 'Nevşehir', 'Niğde', 'Ordu', 'Osmaniye', 'Rize',
+    'Sakarya', 'Samsun', 'Siirt', 'Sinop', 'Sivas', 'Şanlıurfa', 'Şırnak', 'Tekirdağ', 'Tokat', 'Trabzon', 'Tunceli', 'Uşak', 'Van', 'Yalova', 'Yozgat', 'Zonguldak'].sort((a, b) => a.localeCompare(b, 'tr')).concat(['Yurt dışı']);
+  document.querySelector('#city-sel').insertAdjacentHTML('beforeend', ILLER.map(c => '<option value="' + c + '">' + c + '</option>').join(''));
   const go = role => { location.href = role === 'admin' ? 'admin.html' : role === 'seller' ? 'ilan-ver.html' : 'ilanlar.html'; };
   if (me) return go(me.role);
 
@@ -117,6 +123,7 @@
     e.preventDefault();
     const note = $('#signup-note'), f = new FormData(signupForm);
     if (!f.get('full_name') || !f.get('phone') || !f.get('email')) return say(note, 'Ad soyad, telefon ve e-posta zorunludur.', 'err');
+    if (!f.get('city')) return say(note, t('Lütfen şehir seçin.'), 'err');
     if ((f.get('password') || '').length < 8) return say(note, 'Şifre en az 8 karakter olmalı.', 'err');
     if (!f.get('kvkk')) return say(note, 'Devam etmek için kişisel veri onayını işaretleyin.', 'err');
     const picked = [...signupForm.querySelectorAll('input[name=interest]:checked')];
